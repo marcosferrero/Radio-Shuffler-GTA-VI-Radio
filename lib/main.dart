@@ -8,6 +8,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -29,6 +30,7 @@ Future<void> main() async {
   await radio.iniciarSesion();
   await radio.cargarHistorial();
   await cargarIdiomaApp();
+  await radio.inicializarEq();
   runApp(const RadioApp());
 }
 
@@ -41,6 +43,27 @@ Future<Directory> carpetaRadios() async {
   final dir = Directory('${base.path}/radios');
   await dir.create(recursive: true);
   return dir;
+}
+
+/// Carga y ordena todas las emisoras válidas guardadas en disco.
+Future<List<Emisora>> cargarEmisorasDisco() async {
+  final dir = await carpetaRadios();
+  final lista = <Emisora>[];
+  await for (final e in dir.list()) {
+    if (e is! Directory) continue;
+    final json = File('${e.path}/radio.json');
+    if (!await json.exists()) continue;
+    try {
+      final datos = jsonDecode(await json.readAsString());
+      if (datos is Map<String, dynamic>) {
+        lista.add(await Emisora.desdeJsonAsync(datos, e.path));
+      }
+    } catch (_) {
+      // radio.json mal formado: se ignora esa emisora
+    }
+  }
+  lista.sort((a, b) => a.nombre.compareTo(b.nombre));
+  return lista;
 }
 
 final idiomaApp = ValueNotifier<String>('es');
@@ -73,6 +96,7 @@ const Map<String, Map<String, String>> _textosApp = {
     'station_name_label': 'Nombre de la emisora',
     'pick_media': 'Elegir vídeo o audio',
     'pick_logo': 'Elegir logotipo (opcional)',
+    'pick_logo_short': 'Elegir logotipo',
     'change_logo': 'Cambiar logotipo',
     'remove_logo': 'Quitar logotipo',
     'remove': 'Quitar',
@@ -122,6 +146,39 @@ const Map<String, Map<String, String>> _textosApp = {
     'live_badge': 'En directo',
     'paused_badge': 'En pausa',
     'live_upper': 'EN DIRECTO',
+    'dial_mode_tooltip': 'Modo Dial GTA',
+    'list_mode_tooltip': 'Modo Lista',
+    'mode_live': 'EN DIRECTO',
+    'mode_history': 'HISTORIAL',
+    'mode_queue': 'SIGUIENTE',
+    'turn_off': 'APAGAR',
+    'radio_off': 'RADIO APAGADA',
+    'tap_station_to_tune': 'Elige una emisora en el dial',
+    'manage_stations': 'EMISORAS Y EDITAR',
+    'no_stations_dial': 'AÚN NO HAY EMISORAS',
+    'add_first_station': 'AÑADIR RADIO',
+    'create_station': 'CREAR EMISORA',
+    'new_station': 'Nueva emisora',
+    'new_station_desc': 'Crear desde audio/vídeo, logo y lista de pistas',
+    'import_gtaradio': 'Importar paquete (.gtaradio)',
+    'import_gtaradio_desc': 'Cargar una emisora ya empaquetada',
+    'edit_tracks_desc': 'Cambiar nombre, logotipo y tiempos de las pistas',
+    'export_radio_desc': 'Compartir emisora como paquete .gtaradio',
+    'settings': 'Ajustes',
+    'settings_tooltip': 'Ajustes',
+    'equalizer': 'Ecualizador',
+    'eq_on': 'Activado',
+    'eq_off': 'Desactivado',
+    'eq_flat': 'Plano',
+    'eq_bass': 'Bajos',
+    'eq_rock': 'Rock',
+    'eq_pop': 'Pop',
+    'eq_electronic': 'Electrónica',
+    'eq_voice': 'Voz',
+    'eq_custom': 'Personalizado',
+    'eq_reset': 'Restablecer',
+    'eq_needs_android': 'El ecualizador necesita un dispositivo Android.',
+    'language': 'Idioma',
   },
   'en': {
     'app_title': 'Radio GTA',
@@ -150,6 +207,7 @@ const Map<String, Map<String, String>> _textosApp = {
     'station_name_label': 'Station name',
     'pick_media': 'Choose video or audio',
     'pick_logo': 'Choose logo (optional)',
+    'pick_logo_short': 'Choose logo',
     'change_logo': 'Change logo',
     'remove_logo': 'Remove logo',
     'remove': 'Remove',
@@ -199,6 +257,39 @@ const Map<String, Map<String, String>> _textosApp = {
     'live_badge': 'Live',
     'paused_badge': 'Paused',
     'live_upper': 'LIVE',
+    'dial_mode_tooltip': 'GTA Dial Mode',
+    'list_mode_tooltip': 'List Mode',
+    'mode_live': 'LIVE RADIO',
+    'mode_history': 'RECENT',
+    'mode_queue': 'UP NEXT',
+    'turn_off': 'TURN OFF',
+    'radio_off': 'RADIO OFF',
+    'tap_station_to_tune': 'Select a station on the dial',
+    'manage_stations': 'STATIONS & EDIT',
+    'no_stations_dial': 'NO STATIONS YET',
+    'add_first_station': 'ADD STATION',
+    'create_station': 'CREATE STATION',
+    'new_station': 'New station',
+    'new_station_desc': 'Create from audio/video, logo and tracklist',
+    'import_gtaradio': 'Import package (.gtaradio)',
+    'import_gtaradio_desc': 'Load an already packaged station',
+    'edit_tracks_desc': 'Edit station name, logo and track timestamps',
+    'export_radio_desc': 'Share station as a .gtaradio package',
+    'settings': 'Settings',
+    'settings_tooltip': 'Settings',
+    'equalizer': 'Equalizer',
+    'eq_on': 'On',
+    'eq_off': 'Off',
+    'eq_flat': 'Flat',
+    'eq_bass': 'Bass',
+    'eq_rock': 'Rock',
+    'eq_pop': 'Pop',
+    'eq_electronic': 'Electronic',
+    'eq_voice': 'Voice',
+    'eq_custom': 'Custom',
+    'eq_reset': 'Reset',
+    'eq_needs_android': 'Equalizer requires an Android device.',
+    'language': 'Language',
   },
 };
 
@@ -210,6 +301,8 @@ String _t(String key, [Map<String, String> params = const {}]) {
   }
   return s;
 }
+
+const _tiposSegmento = ['cancion', 'locutor', 'anuncio'];
 
 String _etiquetaTipo(String tipo) {
   switch (tipo) {
@@ -280,30 +373,60 @@ class Segmento {
 class Emisora {
   final String nombre;
   final String carpeta;
+  final String archivo; // ruta absoluta del archivo de audio/vídeo
   final List<Segmento> segmentos;
   final String? logo; // ruta absoluta de la imagen, si la emisora tiene logotipo
 
-  Emisora(this.nombre, this.carpeta, this.segmentos, {this.logo});
+  Emisora(
+      this.nombre,
+      this.carpeta,
+      this.segmentos, {
+        required this.archivo,
+        this.logo,
+      });
 
-  factory Emisora.desdeJson(Map<String, dynamic> j, String carpeta) {
-    final archivo = '$carpeta/${j['archivo']}';
+  static List<Segmento> _parseSegmentos(Map<String, dynamic> j, String archivo) {
     Duration d(num s) => Duration(milliseconds: (s * 1000).round());
-    final segs = (j['segmentos'] as List)
+    final lista = j['segmentos'];
+    if (lista is! List) return const [];
+    return lista
+        .whereType<Map<String, dynamic>>()
         .map((s) => Segmento(
       archivo: archivo,
-      inicio: d(s['inicio']),
-      fin: d(s['fin']),
-      tipo: s['tipo'] ?? 'cancion',
-      titulo: s['titulo'] ?? 'Sin título',
+      inicio: d((s['inicio'] as num?) ?? 0),
+      fin: d((s['fin'] as num?) ?? 0),
+      tipo: (s['tipo'] as String?) ?? 'cancion',
+      titulo: (s['titulo'] as String?) ?? 'Sin título',
     ))
         .toList();
+  }
+
+  factory Emisora.desdeJson(Map<String, dynamic> j, String carpeta) {
+    final archivo = '$carpeta/${j['archivo'] ?? ''}';
+    final segs = _parseSegmentos(j, archivo);
     final nombreLogo = j['logo'];
     final rutaLogo = nombreLogo is String ? '$carpeta/$nombreLogo' : null;
     return Emisora(
-      j['nombre'] ?? 'Emisora',
+      (j['nombre'] as String?) ?? 'Emisora',
       carpeta,
       segs,
+      archivo: archivo,
       logo: rutaLogo != null && File(rutaLogo).existsSync() ? rutaLogo : null,
+    );
+  }
+
+  static Future<Emisora> desdeJsonAsync(Map<String, dynamic> j, String carpeta) async {
+    final archivo = '$carpeta/${j['archivo'] ?? ''}';
+    final segs = _parseSegmentos(j, archivo);
+    final nombreLogo = j['logo'];
+    final rutaLogo = nombreLogo is String ? '$carpeta/$nombreLogo' : null;
+    final tieneLogo = rutaLogo != null && await File(rutaLogo).exists();
+    return Emisora(
+      (j['nombre'] as String?) ?? 'Emisora',
+      carpeta,
+      segs,
+      archivo: archivo,
+      logo: tieneLogo ? rutaLogo : null,
     );
   }
 }
@@ -356,7 +479,9 @@ double _aSegundos(String t) {
   return total;
 }
 
-List<Map<String, dynamic>> segmentosDesdeLista(String texto, double totalSeg) {
+typedef JsonMap = Map<String, dynamic>;
+
+List<JsonMap> segmentosDesdeLista(String texto, double totalSeg) {
   final marcas = <MapEntry<double, String>>[];
   for (final linea in texto.split('\n')) {
     final m = _reLinea.firstMatch(linea);
@@ -364,7 +489,7 @@ List<Map<String, dynamic>> segmentosDesdeLista(String texto, double totalSeg) {
   }
   marcas.sort((a, b) => a.key.compareTo(b.key));
 
-  final segs = <Map<String, dynamic>>[];
+  final List<JsonMap> segs = [];
   for (var i = 0; i < marcas.length; i++) {
     final inicio = marcas[i].key;
     final fin = i + 1 < marcas.length ? marcas[i + 1].key : totalSeg;
@@ -383,8 +508,7 @@ List<Map<String, dynamic>> segmentosDesdeLista(String texto, double totalSeg) {
 
 // ---------------------------------------------------------------------------
 // Programación en vivo: cada emisora tiene una "parrilla" infinita y
-// determinista (depende solo del nombre de la emisora y de la hora), así que
-// en cualquier momento se sabe qué estaría sonando, aunque no la estés oyendo.
+// determinista dividida en bloques de 1 hora (salto O(1) al bloque actual).
 // ---------------------------------------------------------------------------
 
 const fundidoCanciones = 3000; // ms de solape entre dos canciones
@@ -421,7 +545,7 @@ void _barajar<T>(List<T> l, Random r) {
 /// Instante (ms desde 1970) en el que "empieza" la emisión de todas las radios.
 final int _epocaMs = DateTime.utc(2026, 1, 1).millisecondsSinceEpoch;
 
-/// Duración mínima de cada bloque de programación (ms).
+/// Duración fija de la ventana de cada bloque de programación (1 hora en ms).
 const int _bloqueMs = 60 * 60 * 1000;
 
 class Posicion {
@@ -440,8 +564,10 @@ class Programacion {
 
   Programacion(this.emisora) : _semilla = _hash(emisora.nombre);
 
-  /// Un bloque son unas ~1 h de pistas: 2-3 canciones, luego un locutor/anuncio,
-  /// sin repetir canción hasta agotarlas todas. Depende solo de (emisora, bloque).
+  int _inicioBloqueMs(int b) => _epocaMs + b * _bloqueMs;
+
+  /// Un bloque cubre al menos 1 h efectiva (descontando solapes): 2-3 canciones,
+  /// luego un locutor/anuncio, sin repetir canción hasta agotarlas todas.
   List<Segmento> _generarBloque(int b) {
     final rng = Random((_semilla * 31 + b * 7919 + 17) & 0x7FFFFFFF);
     final canciones = emisora.segmentos.where((s) => s.tipo == 'cancion').toList();
@@ -450,12 +576,12 @@ class Programacion {
 
     final lista = <Segmento>[];
     var ronda = <Segmento>[];
-    var total = 0;
+    var totalEfectivo = 0;
     var seguidas = 0;
     var objetivo = 2 + rng.nextInt(2);
     Segmento? ultimaVoz;
 
-    while ((total < _bloqueMs || lista.isEmpty) && lista.length < 500) {
+    while ((totalEfectivo < _bloqueMs || lista.isEmpty) && lista.length < 500) {
       Segmento s;
       if (voces.isNotEmpty && canciones.isNotEmpty && seguidas >= objetivo) {
         final candidatas =
@@ -472,8 +598,9 @@ class Programacion {
         s = ronda.removeLast();
         seguidas++;
       }
+      final solape = lista.isEmpty ? 0 : calcularFade(lista.last, s);
       lista.add(s);
-      total += max(1, _durMs(s));
+      totalEfectivo += max(1, _durMs(s) - solape);
     }
     return lista;
   }
@@ -484,8 +611,6 @@ class Programacion {
     if (_bloques.length > 6) _bloques.clear();
     return _bloques[b] = _generarBloque(b);
   }
-
-  Posicion _primera() => Posicion(0, 0, _bloque(0)[0], _epocaMs);
 
   /// La pista que viene después de [p]; empieza cuando la anterior acaba menos el solape.
   Posicion siguiente(Posicion p) {
@@ -499,12 +624,15 @@ class Programacion {
   }
 
   /// Qué pista está en el aire en el instante [ahoraMs].
+  /// Salta directamente al bloque horario correspondiente en O(1).
   Posicion en(int ahoraMs) {
-    Posicion p = _cache ?? _primera();
-    if (p.inicioMs > ahoraMs) p = _primera();
+    final b = ahoraMs <= _epocaMs ? 0 : (ahoraMs - _epocaMs) ~/ _bloqueMs;
+    Posicion p = (_cache != null && _cache!.bloque == b && _cache!.inicioMs <= ahoraMs)
+        ? _cache!
+        : Posicion(b, 0, _bloque(b)[0], _inicioBloqueMs(b));
     while (true) {
       final n = siguiente(p);
-      if (n.inicioMs > ahoraMs) break;
+      if (n.inicioMs > ahoraMs || n.bloque != b) break;
       p = n;
     }
     _cache = p;
@@ -527,12 +655,118 @@ class Reproductor extends BaseAudioHandler {
   /// Si se pausa más de este tiempo, al reanudar vuelve al punto "en directo".
   static const _maxPausa = Duration(seconds: 5);
 
+  // ---- Ecualizador (Android only) ----
+  final AndroidEqualizer _eqA = AndroidEqualizer();
+  final AndroidEqualizer _eqB = AndroidEqualizer();
+  final eqActivo = ValueNotifier<bool>(false);
+  AndroidEqualizerParameters? _eqParams;
+  bool get eqDisponible => !Platform.isAndroid ? false : true;
+
+  Future<void> inicializarEq() async {
+    if (!Platform.isAndroid) return;
+    // Cargar preferencias de EQ guardadas
+    try {
+      final f = await _archivoPreferencias();
+      if (await f.exists()) {
+        final data = jsonDecode(await f.readAsString());
+        if (data is Map<String, dynamic>) {
+          if (data['eq_activo'] == true) {
+            await _eqA.setEnabled(true);
+            await _eqB.setEnabled(true);
+            eqActivo.value = true;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<AndroidEqualizerParameters?> obtenerParametrosEq() async {
+    if (!Platform.isAndroid) return null;
+    _eqParams ??= await _eqA.parameters;
+    return _eqParams;
+  }
+
+  Future<void> setEqActivo(bool activo) async {
+    eqActivo.value = activo;
+    await _eqA.setEnabled(activo);
+    await _eqB.setEnabled(activo);
+    await _guardarPrefsEq();
+  }
+
+  Future<void> setEqBanda(int index, double gain) async {
+    final paramsA = await _eqA.parameters;
+    final paramsB = await _eqB.parameters;
+    if (index < paramsA.bands.length) {
+      await paramsA.bands[index].setGain(gain);
+    }
+    if (index < paramsB.bands.length) {
+      await paramsB.bands[index].setGain(gain);
+    }
+    await _guardarPrefsEq();
+  }
+
+  Future<void> resetEq() async {
+    final params = await _eqA.parameters;
+    final paramsB = await _eqB.parameters;
+    for (final b in params.bands) {
+      await b.setGain(0);
+    }
+    for (final b in paramsB.bands) {
+      await b.setGain(0);
+    }
+    await _guardarPrefsEq();
+  }
+
+  Future<void> _guardarPrefsEq() async {
+    try {
+      final f = await _archivoPreferencias();
+      Map<String, dynamic> data = {};
+      if (await f.exists()) {
+        final decoded = jsonDecode(await f.readAsString());
+        if (decoded is Map<String, dynamic>) data = decoded;
+      }
+      data['eq_activo'] = eqActivo.value;
+      final params = await _eqA.parameters;
+      data['eq_bandas'] = [
+        for (final b in params.bands) b.gain,
+      ];
+      await f.writeAsString(jsonEncode(data));
+    } catch (_) {}
+  }
+
+  Future<void> _restaurarBandasEq() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final f = await _archivoPreferencias();
+      if (!await f.exists()) return;
+      final data = jsonDecode(await f.readAsString());
+      if (data is! Map<String, dynamic>) return;
+      final bandas = data['eq_bandas'];
+      if (bandas is! List) return;
+      final paramsA = await _eqA.parameters;
+      final paramsB = await _eqB.parameters;
+      for (var i = 0; i < bandas.length && i < paramsA.bands.length; i++) {
+        final g = (bandas[i] as num).toDouble();
+        await paramsA.bands[i].setGain(g);
+        if (i < paramsB.bands.length) {
+          await paramsB.bands[i].setGain(g);
+        }
+      }
+    } catch (_) {}
+  }
+
   // Dos reproductores: mientras uno termina, el otro empieza y se mezclan.
   // El audio session lo gestionamos nosotros (ver iniciarSesion).
-  final AudioPlayer _a =
-  AudioPlayer(handleInterruptions: false, handleAudioSessionActivation: false);
-  final AudioPlayer _b =
-  AudioPlayer(handleInterruptions: false, handleAudioSessionActivation: false);
+  late final AudioPlayer _a = AudioPlayer(
+    handleInterruptions: false,
+    handleAudioSessionActivation: false,
+    audioPipeline: AudioPipeline(androidAudioEffects: [_eqA]),
+  );
+  late final AudioPlayer _b = AudioPlayer(
+    handleInterruptions: false,
+    handleAudioSessionActivation: false,
+    audioPipeline: AudioPipeline(androidAudioEffects: [_eqB]),
+  );
   late AudioPlayer _cur = _a; // el que suena
   late AudioPlayer _sig = _b; // el que tiene la siguiente pista preparada
 
@@ -561,6 +795,19 @@ class Reproductor extends BaseAudioHandler {
 
   // ----- API que usa la interfaz -----
 
+  /// Devuelve el segmento que suena (o estaría sonando en vivo en [e]),
+  /// reutilizando la instancia cacheada de [Programacion].
+  Segmento? segmentoEnVivo(Emisora e) {
+    if (e.segmentos.isEmpty) return null;
+    final activa = emisoraActual.value;
+    final segActual = actual.value;
+    if (activa != null && activa.carpeta == e.carpeta && segActual != null) {
+      return segActual;
+    }
+    final prog = _programaciones.putIfAbsent(e.carpeta, () => Programacion(e));
+    return prog.en(DateTime.now().millisecondsSinceEpoch).seg;
+  }
+
   /// Sintoniza la emisora "en directo": entra en la pista y el punto exacto
   /// que estaría sonando ahora mismo según la hora.
   Future<void> sintonizar(Emisora e) async {
@@ -587,7 +834,7 @@ class Reproductor extends BaseAudioHandler {
     sonando.value = true;
     _estado();
     _cur.play(); // sin await: el Future termina cuando se pausa o acaba
-    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _tick());
+    _iniciarTimer();
     _prepararSiguiente();
   }
 
@@ -623,11 +870,10 @@ class Reproductor extends BaseAudioHandler {
       if (!await f.exists()) return;
       final datos = jsonDecode(await f.readAsString());
       if (datos is! List) return;
-      historial.value = datos
-          .whereType<Map<String, dynamic>>()
-          .map(EntradaHistorial.desdeJson)
-          .take(_maxHistorial)
-          .toList();
+      historial.value = [
+        for (final item in datos)
+          if (item is JsonMap) EntradaHistorial.desdeJson(item),
+      ].take(_maxHistorial).toList();
     } catch (_) {
       // Si el fichero está corrupto, arrancamos con historial vacío.
     }
@@ -722,6 +968,7 @@ class Reproductor extends BaseAudioHandler {
     sonando.value = true;
     _cur.play();
     if (_fundiendo) _sig.play();
+    _iniciarTimer();
     _estado();
   }
 
@@ -729,6 +976,7 @@ class Reproductor extends BaseAudioHandler {
   Future<void> pause() async {
     _pausadoEn ??= DateTime.now();
     sonando.value = false;
+    _pararTimer();
     await _cur.pause();
     if (_fundiendo) await _sig.pause();
     _estado();
@@ -739,10 +987,19 @@ class Reproductor extends BaseAudioHandler {
 
   // ----- Motor interno -----
 
-  Future<void> _parar() async {
-    _gen++;
+  void _iniciarTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 50), (_) => _tick());
+  }
+
+  void _pararTimer() {
     _timer?.cancel();
     _timer = null;
+  }
+
+  Future<void> _parar() async {
+    _gen++;
+    _pararTimer();
     _fundiendo = false;
     _sigListo = false;
     _prog = null;
@@ -820,8 +1077,8 @@ class Reproductor extends BaseAudioHandler {
     if (_fundiendo) {
       // Mezcla de potencia constante; el progreso lo marca la posición de la nueva pista.
       final t = (_sig.position.inMilliseconds / _fadeMs).clamp(0.0, 1.0).toDouble();
-      _cur.setVolume(cos(t * pi / 2));
-      _sig.setVolume(sin(t * pi / 2));
+      unawaited(_cur.setVolume(cos(t * pi / 2)));
+      unawaited(_sig.setVolume(sin(t * pi / 2)));
       if (t >= 1.0 || _cur.processingState == ProcessingState.completed) {
         _terminarFundido();
       }
@@ -874,7 +1131,6 @@ class RadioApp extends StatelessWidget {
   Widget build(BuildContext context) => ValueListenableBuilder<String>(
     valueListenable: idiomaApp,
     builder: (_, lang, __) => MaterialApp(
-      key: ValueKey(lang),
       locale: Locale(lang),
       title: _t('app_title'),
       debugShowCheckedModeBanner: false,
@@ -883,221 +1139,529 @@ class RadioApp extends StatelessWidget {
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      home: const PantallaEmisoras(),
+      home: const PantallaInicioGTA(),
     ),
   );
 }
 
-class PantallaEmisoras extends StatefulWidget {
-  const PantallaEmisoras({super.key});
+class _BotonIdioma extends StatelessWidget {
+  final Color? color;
+  final double? tam;
+  const _BotonIdioma({this.color, this.tam});
 
-  @override
-  State<PantallaEmisoras> createState() => _PantallaEmisorasState();
-}
-
-class _PantallaEmisorasState extends State<PantallaEmisoras> {
-  final repro = radio;
-  List<Emisora> emisoras = [];
-  bool cargando = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _cargar();
-  }
-
-  Future<void> _cargar() async {
-    setState(() => cargando = true);
-    final dir = await carpetaRadios();
-    final lista = <Emisora>[];
-    await for (final e in dir.list()) {
-      if (e is! Directory) continue;
-      final json = File('${e.path}/radio.json');
-      if (!await json.exists()) continue;
-      try {
-        lista.add(Emisora.desdeJson(jsonDecode(await json.readAsString()), e.path));
-      } catch (_) {
-        // radio.json mal formado: se ignora esa emisora
-      }
-    }
-    lista.sort((a, b) => a.nombre.compareTo(b.nombre));
-    setState(() {
-      emisoras = lista;
-      cargando = false;
-    });
-  }
-
-  Future<void> _anadir() async {
-    final creada = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => PantallaImportar(repro: repro)),
-    );
-    if (creada == true) _cargar();
-  }
-
-  Future<void> _editar(Emisora e) async {
-    final guardado = await Navigator.push<bool>(
-      context,
-      MaterialPageRoute(builder: (_) => PantallaEditar(emisora: e)),
-    );
-    if (guardado == true) _cargar();
-  }
-
-  /// Muestra un diálogo de espera mientras dura [tarea] (empaquetar/desempaquetar
-  /// archivos grandes puede tardar) y enseña el error si falla.
-  Future<bool> _conEspera(String texto, Future<void> Function() tarea) async {
-    showDialog<void>(
+  Future<void> _abrirMenu(BuildContext context) async {
+    final actual = idiomaApp.value;
+    final elegido = await showModalBottomSheet<String>(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          content: Row(children: [
-            const CircularProgressIndicator(),
-            const SizedBox(width: 20),
-            Expanded(child: Text(texto)),
-          ]),
+      backgroundColor: const Color(0xFF101016),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Colors.white12),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                _t('language_tooltip').toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _OpcionIdiomaGTA(
+                codigo: 'ES',
+                titulo: 'ESPAÑOL',
+                subtitulo: _t('lang_es'),
+                activo: actual == 'es',
+                onTap: () => Navigator.pop(ctx, 'es'),
+              ),
+              const SizedBox(height: 10),
+              _OpcionIdiomaGTA(
+                codigo: 'EN',
+                titulo: 'ENGLISH',
+                subtitulo: _t('lang_en'),
+                activo: actual == 'en',
+                onTap: () => Navigator.pop(ctx, 'en'),
+              ),
+            ],
+          ),
         ),
       ),
     );
-    try {
-      await tarea();
-      return true;
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-      return false;
-    } finally {
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    if (elegido != null && elegido != actual) {
+      await cambiarIdiomaApp(elegido);
     }
-  }
-
-  Future<void> _exportar(Emisora e) async {
-    await _conEspera(
-      _t('preparing_radio', {'nombre': e.nombre}),
-          () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
-    );
-  }
-
-  Future<void> _importarPaquete() async {
-    // La extensión .gtaradio no tiene tipo MIME conocido: se deja elegir cualquier archivo
-    // y es importarRadio quien valida que sea un paquete.
-    final f = await FilePicker.pickFile();
-    final ruta = f?.path;
-    if (f == null || ruta == null || !mounted) return;
-    final base = await carpetaRadios();
-    final ok = await _conEspera(
-      _t('importing_radio'),
-          () async {
-        await importarRadio(paquete: File(ruta), base: base);
-        // La copia de la caché del selector ya no hace falta.
-        try {
-          await File(ruta).delete();
-        } catch (_) {}
-      },
-    );
-    if (ok) {
-      await _cargar();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('radio_imported'))),
-        );
-      }
-    }
-  }
-
-  Future<void> _borrar(Emisora e) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(_t('delete_radio_title', {'nombre': e.nombre})),
-        content: Text(_t('delete_radio_body')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('cancel'))),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('delete'))),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    await repro.olvidar(e.carpeta);
-    await Directory(e.carpeta).delete(recursive: true);
-    _cargar();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_t('radio_title')),
-        actions: [
-          PopupMenuButton<String>(
-            tooltip: _t('language_tooltip'),
-            icon: const Icon(Icons.language),
-            onSelected: cambiarIdiomaApp,
-            itemBuilder: (_) => [
-              CheckedPopupMenuItem(
-                value: 'es',
-                checked: idiomaApp.value == 'es',
-                child: Text(_t('lang_es')),
+    return ValueListenableBuilder<String>(
+      valueListenable: idiomaApp,
+      builder: (context, lang, _) => Tooltip(
+        message: _t('language_tooltip'),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => _abrirMenu(context),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.42),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white24),
               ),
-              CheckedPopupMenuItem(
-                value: 'en',
-                checked: idiomaApp.value == 'en',
-                child: Text(_t('lang_en')),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.language,
+                    color: color ?? Colors.white,
+                    size: (tam ?? 20) * 0.8,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    lang.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11.5,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpcionIdiomaGTA extends StatelessWidget {
+  final String codigo;
+  final String titulo;
+  final String subtitulo;
+  final bool activo;
+  final VoidCallback onTap;
+
+  const _OpcionIdiomaGTA({
+    required this.codigo,
+    required this.titulo,
+    required this.subtitulo,
+    required this.activo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: activo ? 0.11 : 0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: activo ? Colors.white38 : Colors.white12,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: activo ? Colors.white : Colors.white.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  codigo,
+                  style: TextStyle(
+                    color: activo ? Colors.black : Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                        letterSpacing: 0.9,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitulo,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                activo ? Icons.check_circle : Icons.chevron_right,
+                color: activo ? Colors.white : Colors.white54,
+                size: 20,
               ),
             ],
           ),
-          IconButton(
-            tooltip: _t('import_package_tooltip'),
-            icon: const Icon(Icons.file_download_outlined),
-            onPressed: _importarPaquete,
+        ),
+      ),
+    );
+  }
+}
+Future<bool> _ejecutarConEspera(
+    BuildContext context,
+    String texto,
+    Future<void> Function() tarea,
+    ) async {
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF101016),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Colors.white12),
+        ),
+        content: Row(children: [
+          const CircularProgressIndicator(color: Colors.white),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Text(
+              texto,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ]),
+      ),
+    ),
+  );
+  try {
+    await tarea();
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_t('error_prefix', {'err': '$e'}))),
+      );
+    }
+    return false;
+  } finally {
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+}
+
+Future<bool> _importarPaqueteConDialogo(BuildContext context) async {
+  final f = await FilePicker.pickFile();
+  final ruta = f?.path;
+  if (f == null || ruta == null || !context.mounted) return false;
+  final base = await carpetaRadios();
+  if (!context.mounted) return false;
+  final ok = await _ejecutarConEspera(
+    context,
+    _t('importing_radio'),
+        () async {
+      await importarRadio(paquete: File(ruta), base: base);
+      try {
+        await File(ruta).delete();
+      } catch (_) {}
+    },
+  );
+  if (ok && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(_t('radio_imported'))),
+    );
+  }
+  return ok;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers visuales estilo GTA para formularios y diálogos
+// ---------------------------------------------------------------------------
+
+class _FondoAtmosfericoGTA extends StatelessWidget {
+  final Color color;
+  final String? logoRuta;
+  final Widget child;
+
+  const _FondoAtmosfericoGTA({
+    required this.color,
+    this.logoRuta,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(0, -0.35),
+              radius: 1.2,
+              colors: [
+                color.withValues(alpha: 0.34),
+                const Color(0xFF0B0B10),
+                Colors.black,
+              ],
+            ),
+          ),
+        ),
+        if (logoRuta != null)
+          Opacity(
+            opacity: 0.14,
+            child: Image.file(
+              File(logoRuta!),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.65),
+                Colors.black.withValues(alpha: 0.45),
+                Colors.black.withValues(alpha: 0.90),
+              ],
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+}
+
+InputDecoration _inputDecorationGTA({
+  required String label,
+  String? hint,
+  String? helper,
+  Color? acento,
+}) {
+  return InputDecoration(
+    labelText: label.toUpperCase(),
+    hintText: hint,
+    helperText: helper,
+    helperMaxLines: 2,
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.06),
+    labelStyle: const TextStyle(
+      color: Colors.white70,
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 1.0,
+    ),
+    floatingLabelStyle: TextStyle(
+      color: acento ?? Colors.white,
+      fontSize: 12,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.1,
+    ),
+    hintStyle: const TextStyle(color: Colors.white30),
+    helperStyle: const TextStyle(color: Colors.white54, fontSize: 11.5),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Colors.white24),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: acento ?? Colors.white, width: 1.6),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+  );
+}
+
+class _BotonSelectorGTA extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final String? subtitulo;
+  final bool seleccionado;
+  final Color? acento;
+  final Widget? leadingCustom;
+  final VoidCallback onTap;
+  final VoidCallback? onLimpiar;
+
+  const _BotonSelectorGTA({
+    required this.icono,
+    required this.titulo,
+    required this.onTap,
+    this.subtitulo,
+    this.seleccionado = false,
+    this.acento,
+    this.leadingCustom,
+    this.onLimpiar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borde = seleccionado
+        ? (acento?.withValues(alpha: 0.65) ?? Colors.white38)
+        : Colors.white12;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: seleccionado ? 0.09 : 0.055),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borde),
+          ),
+          child: Row(
+            children: [
+              leadingCustom ??
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: seleccionado
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      icono,
+                      size: 18,
+                      color: seleccionado ? Colors.black : Colors.white,
+                    ),
+                  ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12.5,
+                        letterSpacing: 0.9,
+                      ),
+                    ),
+                    if (subtitulo != null && subtitulo!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitulo!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (onLimpiar != null)
+                IconButton(
+                  tooltip: _t('remove_logo'),
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  onPressed: onLimpiar,
+                )
+              else
+                Icon(
+                  seleccionado ? Icons.check_circle : Icons.chevron_right,
+                  color: seleccionado ? Colors.white : Colors.white54,
+                  size: 20,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaratulaPreviewGTA extends StatelessWidget {
+  final String? logoRuta;
+  final String nombre;
+  final double tam;
+
+  const _CaratulaPreviewGTA({
+    required this.logoRuta,
+    required this.nombre,
+    this.tam = 92,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final titulo = nombre.trim().isEmpty ? 'GTA RADIO' : nombre.trim();
+    final color = _colorEmisora(titulo);
+    return Container(
+      width: tam,
+      height: tam,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.white, width: 2.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.45),
+            blurRadius: 18,
+            spreadRadius: 1,
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _anadir,
-        icon: const Icon(Icons.add),
-        label: Text(_t('add_radio')),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3.5),
+        child: logoRuta != null
+            ? Image.file(
+                File(logoRuta!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _CaratulaFallbackGTA(nombre: titulo),
+              )
+            : _CaratulaFallbackGTA(nombre: titulo),
       ),
-      body: cargando
-          ? const Center(child: CircularProgressIndicator())
-          : emisoras.isEmpty
-          ? Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: Text(
-            _t('no_stations'),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      )
-          : ListView.builder(
-        padding: const EdgeInsets.only(bottom: 88),
-        itemCount: emisoras.length,
-        itemBuilder: (_, i) {
-          final e = emisoras[i];
-          return ListTile(
-            leading: _LogoMini(ruta: e.logo, nombre: e.nombre, tam: 48),
-            title: Text(e.nombre),
-            subtitle: Text(_t('segments_count', {'n': '${e.segmentos.length}'})),
-            onTap: () => repro.sintonizar(e),
-            trailing: PopupMenuButton<String>(
-              onSelected: (v) {
-                if (v == 'editar') _editar(e);
-                if (v == 'exportar') _exportar(e);
-                if (v == 'borrar') _borrar(e);
-              },
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'editar', child: Text(_t('edit_tracks'))),
-                PopupMenuItem(value: 'exportar', child: Text(_t('export_radio'))),
-                PopupMenuItem(value: 'borrar', child: Text(_t('delete_radio'))),
-              ],
-            ),
-          );
-        },
-      ),
-      bottomNavigationBar: _BarraReproduccion(repro: repro),
     );
   }
 }
@@ -1165,8 +1729,13 @@ class _PantallaImportarState extends State<PantallaImportar> {
     setState(() => _trabajando = true);
 
     final base = await carpetaRadios();
-    final seguro = nombre.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final carpeta = Directory('${base.path}/$seguro');
+    var seguro = nombre.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    if (seguro.isEmpty) seguro = 'emisora';
+    var carpeta = Directory('${base.path}/$seguro');
+    if (await carpeta.exists()) {
+      carpeta = Directory('${base.path}/${seguro}_${DateTime.now().millisecondsSinceEpoch}');
+    }
+
     try {
       await carpeta.create(recursive: true);
       final ext = _archivo!.path.contains('.') ? _archivo!.path.split('.').last : 'mp4';
@@ -1196,7 +1765,7 @@ class _PantallaImportarState extends State<PantallaImportar> {
         'segmentos': segs,
       }));
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) Navigator.pop(context, carpeta.path);
     } catch (e) {
       if (await carpeta.exists()) await carpeta.delete(recursive: true);
       if (mounted) _aviso(_t('error_prefix', {'err': '$e'}));
@@ -1207,78 +1776,163 @@ class _PantallaImportarState extends State<PantallaImportar> {
 
   @override
   Widget build(BuildContext context) {
+    final nombreVista = _nombre.text.trim();
+    final color = nombreVista.isEmpty
+        ? const Color(0xFFFF2E93)
+        : _colorEmisora(nombreVista);
+
     return Scaffold(
-      appBar: AppBar(title: Text(_t('add_radio'))),
-      body: AbsorbPointer(
-        absorbing: _trabajando,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextField(
-              controller: _nombre,
-              decoration: InputDecoration(
-                labelText: _t('station_name_label'),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _elegirArchivo,
-              icon: const Icon(Icons.video_file),
-              label: Text(_archivo == null ? _t('pick_media') : _nombreArchivo),
-            ),
-            const SizedBox(height: 16),
-            Row(
+      backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          _t('new_station').toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.3,
+          ),
+        ),
+      ),
+      body: _FondoAtmosfericoGTA(
+        color: color,
+        logoRuta: _logo?.path,
+        child: SafeArea(
+          child: AbsorbPointer(
+            absorbing: _trabajando,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
               children: [
-                if (_logo != null) ...[
-                  _LogoMini(ruta: _logo!.path, nombre: _nombre.text, tam: 48),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _elegirLogo,
-                    icon: const Icon(Icons.image),
-                    label: Text(_logo == null
-                        ? _t('pick_logo')
-                        : _t('change_logo')),
+                Center(
+                  child: GestureDetector(
+                    onTap: _elegirLogo,
+                    child: _CaratulaPreviewGTA(
+                      logoRuta: _logo?.path,
+                      nombre: nombreVista,
+                      tam: 104,
+                    ),
                   ),
                 ),
-                if (_logo != null)
-                  IconButton(
-                    tooltip: _t('remove_logo'),
-                    icon: const Icon(Icons.close),
-                    onPressed: () => setState(() => _logo = null),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _nombre,
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
                   ),
+                  cursorColor: Colors.white,
+                  decoration: _inputDecorationGTA(
+                    label: _t('station_name_label'),
+                    acento: color,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _BotonSelectorGTA(
+                  icono: Icons.video_file_outlined,
+                  titulo: _t('pick_media'),
+                  subtitulo: _archivo == null ? null : _nombreArchivo,
+                  seleccionado: _archivo != null,
+                  acento: color,
+                  onTap: _elegirArchivo,
+                ),
+                const SizedBox(height: 12),
+                _BotonSelectorGTA(
+                  icono: Icons.image_outlined,
+                  titulo: _logo == null ? _t('pick_logo') : _t('change_logo'),
+                  seleccionado: _logo != null,
+                  acento: color,
+                  leadingCustom: _logo == null
+                      ? null
+                      : _LogoMini(ruta: _logo!.path, nombre: _nombre.text, tam: 36),
+                  onTap: _elegirLogo,
+                  onLimpiar: _logo == null ? null : () => setState(() => _logo = null),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _pistas,
+                  minLines: 7,
+                  maxLines: 13,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    height: 1.35,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  cursorColor: Colors.white,
+                  decoration: _inputDecorationGTA(
+                    label: _t('tracklist_label'),
+                    hint: _t('tracklist_hint'),
+                    helper: _t('tracklist_helper'),
+                    acento: color,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    onPressed: _importar,
+                    icon: const Icon(Icons.check, size: 20),
+                    label: Text(
+                      _t('import_btn').toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                        letterSpacing: 1.3,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_trabajando) ...[
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            _t('working_long_file'),
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _pistas,
-              minLines: 8,
-              maxLines: 14,
-              decoration: InputDecoration(
-                labelText: _t('tracklist_label'),
-                hintText: _t('tracklist_hint'),
-                helperText: _t('tracklist_helper'),
-                helperMaxLines: 2,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _importar,
-              child: Text(_t('import_btn')),
-            ),
-            if (_trabajando) ...[
-              const SizedBox(height: 24),
-              const Center(child: CircularProgressIndicator()),
-              const SizedBox(height: 12),
-              Text(
-                _t('working_long_file'),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -1310,8 +1964,6 @@ Duration? _parseTiempo(String t) {
   }
 }
 
-const _nombresTipo = {'cancion': 'Canción', 'locutor': 'Locutor', 'anuncio': 'Anuncio'};
-
 IconData _iconoTipo(String t) =>
     t == 'cancion' ? Icons.music_note : (t == 'locutor' ? Icons.mic : Icons.campaign);
 
@@ -1327,7 +1979,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
   late final List<Segmento> _segs = [...widget.emisora.segmentos];
   late final TextEditingController _nombre =
   TextEditingController(text: widget.emisora.nombre);
-  late final String _archivo = widget.emisora.segmentos.first.archivo;
+  late final String _archivo = widget.emisora.archivo;
   final AudioPlayer _previa = AudioPlayer();
   Duration? _total;
   bool _cambios = false;
@@ -1492,6 +2144,10 @@ class _PantallaEditarState extends State<PantallaEditar> {
 
   @override
   Widget build(BuildContext context) {
+    final nombreVista =
+        _nombre.text.trim().isEmpty ? widget.emisora.nombre : _nombre.text.trim();
+    final color = _colorEmisora(nombreVista);
+
     return PopScope(
       canPop: !_cambios,
       onPopInvokedWithResult: (didPop, _) async {
@@ -1499,15 +2155,45 @@ class _PantallaEditarState extends State<PantallaEditar> {
         final salir = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: Text(_t('discard_changes_title')),
+            backgroundColor: const Color(0xFF101016),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: Colors.white12),
+            ),
+            title: Text(
+              _t('discard_changes_title').toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.0,
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text(_t('keep_editing')),
+                child: Text(
+                  _t('keep_editing').toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
               ),
               FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () => Navigator.pop(context, true),
-                child: Text(_t('discard')),
+                child: Text(
+                  _t('discard').toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1515,99 +2201,236 @@ class _PantallaEditarState extends State<PantallaEditar> {
         if (salir == true && mounted) Navigator.pop(context);
       },
       child: Scaffold(
+        backgroundColor: Colors.black,
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
-          title: Text(_t('edit_tracks')),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.check),
-              tooltip: _t('save_tooltip'),
-              onPressed: _cambios ? _guardar : null,
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(
+            _t('edit_tracks').toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.3,
             ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _anadir,
-          icon: const Icon(Icons.add),
-          label: Text(_t('add_track')),
-        ),
-        body: ListView.builder(
-          padding: const EdgeInsets.only(bottom: 88),
-          itemCount: _segs.length + 1,
-          itemBuilder: (_, i) {
-            if (i == 0) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Opacity(
+                opacity: _cambios ? 1.0 : 0.35,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _cambios ? _guardar : null,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _cambios
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _LogoMini(
-                          ruta: _logoVista,
-                          nombre: widget.emisora.nombre,
-                          tam: 72,
+                        Icon(
+                          Icons.check,
+                          size: 16,
+                          color: _cambios ? Colors.black : Colors.white70,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Wrap(
-                            spacing: 8,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: _cambiarLogo,
-                                icon: const Icon(Icons.image),
-                                label: Text(_logoVista == null
-                                    ? _t('pick_logo').replaceAll(' (opcional)', '')
-                                    : _t('change_logo')),
-                              ),
-                              if (_logoVista != null)
-                                TextButton(
-                                  onPressed: _quitarLogo,
-                                  child: Text(_t('remove')),
-                                ),
-                            ],
+                        const SizedBox(width: 6),
+                        Text(
+                          _t('save_tooltip').toUpperCase(),
+                          style: TextStyle(
+                            color: _cambios ? Colors.black : Colors.white70,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.0,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _nombre,
-                      onChanged: (_) {
-                        if (!_cambios) setState(() => _cambios = true);
-                      },
-                      decoration: InputDecoration(
-                        labelText: _t('station_name_label'),
-                        border: const OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: _BotonHudGTA(
+          icono: Icons.add,
+          etiqueta: _t('add_track').toUpperCase(),
+          acento: color,
+          onTap: _anadir,
+        ),
+        body: _FondoAtmosfericoGTA(
+          color: color,
+          logoRuta: _logoVista,
+          child: SafeArea(
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 92),
+              itemCount: _segs.length + 1,
+              itemBuilder: (_, i) {
+                if (i == 0) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: _cambiarLogo,
+                              child: _CaratulaPreviewGTA(
+                                logoRuta: _logoVista,
+                                nombre: nombreVista,
+                                tam: 76,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _BotonSelectorGTA(
+                                    icono: Icons.image_outlined,
+                                    titulo: _logoVista == null
+                                        ? _t('pick_logo_short')
+                                        : _t('change_logo'),
+                                    seleccionado: _logoVista != null,
+                                    acento: color,
+                                    onTap: _cambiarLogo,
+                                    onLimpiar: _logoVista == null ? null : _quitarLogo,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _nombre,
+                          onChanged: (_) => setState(() => _cambios = true),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                          cursorColor: Colors.white,
+                          decoration: _inputDecorationGTA(
+                            label: _t('station_name_label'),
+                            acento: color,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          (_total == null
+                                  ? _t('tracks_count', {'n': '${_segs.length}'})
+                                  : _t('tracks_and_duration', {
+                                      'n': '${_segs.length}',
+                                      'dur': _fmt(_total!),
+                                    }))
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final idx = i - 1;
+                final s = _segs[idx];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => _editarPista(idx),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.055),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                _iconoTipo(s.tipo),
+                                color: Colors.white,
+                                size: 17,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.titulo.toUpperCase(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 13,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_fmt(s.inicio)} – ${_fmt(s.fin)} · ${_fmt(s.fin - s.inicio)}',
+                                    style: const TextStyle(
+                                      color: Colors.white60,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      fontFeatures: [FontFeature.tabularFigures()],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.white54,
+                                size: 20,
+                              ),
+                              tooltip: _t('delete'),
+                              onPressed: () => _borrarPista(idx),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _total == null
-                          ? _t('tracks_count', {'n': '${_segs.length}'})
-                          : _t('tracks_and_duration', {
-                        'n': '${_segs.length}',
-                        'dur': _fmt(_total!),
-                      }),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              );
-            }
-            final idx = i - 1;
-            final s = _segs[idx];
-            return ListTile(
-              leading: Icon(_iconoTipo(s.tipo)),
-              title: Text(s.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text('${_fmt(s.inicio)} – ${_fmt(s.fin)} · ${_fmt(s.fin - s.inicio)}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: _t('delete'),
-                onPressed: () => _borrarPista(idx),
-              ),
-              onTap: () => _editarPista(idx),
-            );
-          },
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -1709,7 +2532,20 @@ class _DialogoPistaState extends State<_DialogoPista> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.inicial == null ? _t('new_track') : _t('edit_track')),
+      backgroundColor: const Color(0xFF101016),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Colors.white12),
+      ),
+      title: Text(
+        (widget.inicial == null ? _t('new_track') : _t('edit_track')).toUpperCase(),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.2,
+        ),
+      ),
       scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1717,28 +2553,71 @@ class _DialogoPistaState extends State<_DialogoPista> {
         children: [
           TextField(
             controller: _titulo,
-            decoration: InputDecoration(labelText: _t('title_label')),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            cursorColor: Colors.white,
+            decoration: _inputDecorationGTA(label: _t('title_label')),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
-              for (final e in _nombresTipo.entries)
-                ChoiceChip(
-                  label: Text(_etiquetaTipo(e.key)),
-                  selected: _tipo == e.key,
-                  onSelected: (_) => setState(() => _tipo = e.key),
+              for (final tipo in _tiposSegmento)
+                GestureDetector(
+                  onTap: () => setState(() => _tipo = tipo),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _tipo == tipo
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: _tipo == tipo ? Colors.white : Colors.white24,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _iconoTipo(tipo),
+                          size: 14,
+                          color: _tipo == tipo ? Colors.black : Colors.white70,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _etiquetaTipo(tipo).toUpperCase(),
+                          style: TextStyle(
+                            color: _tipo == tipo ? Colors.black : Colors.white70,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: _ini,
                   keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(labelText: _t('start_label'), hintText: '3:41'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  cursorColor: Colors.white,
+                  decoration: _inputDecorationGTA(
+                    label: _t('start_label'),
+                    hint: '3:41',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1746,67 +2625,124 @@ class _DialogoPistaState extends State<_DialogoPista> {
                 child: TextField(
                   controller: _fin,
                   keyboardType: TextInputType.datetime,
-                  decoration: InputDecoration(labelText: _t('end_label'), hintText: '7:05'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                  cursorColor: Colors.white,
+                  decoration: _inputDecorationGTA(
+                    label: _t('end_label'),
+                    hint: '7:05',
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: [
-              TextButton.icon(
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
                 onPressed: _oirInicio,
-                icon: const Icon(Icons.play_arrow),
-                label: Text(_t('listen_start')),
+                icon: const Icon(Icons.play_arrow, size: 16),
+                label: Text(
+                  _t('listen_start').toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
               ),
-              TextButton.icon(
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white24),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
                 onPressed: _oirFinal,
-                icon: const Icon(Icons.play_arrow),
-                label: Text(_t('listen_end')),
+                icon: const Icon(Icons.play_arrow, size: 16),
+                label: Text(
+                  _t('listen_end').toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
               ),
             ],
           ),
           if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
+              ),
               child: Text(
                 _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+                style: const TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
         ],
       ),
       actions: [
-        TextButton(onPressed: _cancelar, child: Text(_t('cancel'))),
-        FilledButton(onPressed: _aceptar, child: Text(_t('accept'))),
+        TextButton(
+          onPressed: _cancelar,
+          child: Text(
+            _t('cancel').toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          onPressed: _aceptar,
+          child: Text(
+            _t('accept').toUpperCase(),
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.9,
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Pantalla de reproducción
+// Utilidades visuales y de formato
 // ---------------------------------------------------------------------------
-
-/// Abre la pantalla de reproducción deslizándola desde abajo.
-Future<void> abrirReproduccion(BuildContext context) {
-  return Navigator.of(context).push(PageRouteBuilder<void>(
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 250),
-    pageBuilder: (_, __, ___) => const PantallaReproduccion(),
-    transitionsBuilder: (_, anim, __, child) => SlideTransition(
-      position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
-        CurvedAnimation(
-          parent: anim,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        ),
-      ),
-      child: child,
-    ),
-  ));
-}
 
 /// Cada emisora tiene su propio color, estable: sale del nombre.
 Color _colorEmisora(String nombre) =>
@@ -1912,258 +2848,6 @@ class _LogoMini extends StatelessWidget {
   }
 }
 
-class PantallaReproduccion extends StatelessWidget {
-  const PantallaReproduccion({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final repro = radio;
-    final cs = Theme.of(context).colorScheme;
-
-    return ValueListenableBuilder<Segmento?>(
-      valueListenable: repro.actual,
-      builder: (context, seg, _) {
-        // La radio se detuvo (por ejemplo desde la notificación): se cierra sola.
-        if (seg == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted && ModalRoute.of(context)?.isCurrent == true) {
-              Navigator.of(context).pop();
-            }
-          });
-          return const Scaffold();
-        }
-
-        final emisora = repro.emisoraActual.value;
-        final nombre = emisora?.nombre ?? '';
-        final color = _colorEmisora(nombre);
-        final fondo = Color.alphaBlend(color.withValues(alpha: 0.16), cs.surface);
-        final proximas = repro.proximas(6);
-
-        return Scaffold(
-          backgroundColor: fondo,
-          appBar: AppBar(
-            backgroundColor: fondo,
-            surfaceTintColor: Colors.transparent,
-            leading: IconButton(
-              icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-              tooltip: _t('close_tooltip'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            centerTitle: true,
-            title: Text(nombre, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          body: SafeArea(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: _Portada(
-                        nombre: nombre,
-                        tipo: seg.tipo,
-                        color: color,
-                        logo: emisora?.logo,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 16,
-                  runSpacing: 4,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_iconoTipo(seg.tipo), size: 18, color: color),
-                        const SizedBox(width: 6),
-                        Text(
-                          _etiquetaTipo(seg.tipo),
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                      ],
-                    ),
-                    _InsigniaDirecto(repro: repro),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _TituloPista(key: ValueKey(seg), seg: seg),
-                ),
-                const SizedBox(height: 24),
-                _ProgresoPista(repro: repro, seg: seg, color: color),
-                const SizedBox(height: 20),
-                Center(
-                  child: ValueListenableBuilder<bool>(
-                    valueListenable: repro.sonando,
-                    builder: (_, sonando, __) => IconButton.filled(
-                      iconSize: 44,
-                      padding: const EdgeInsets.all(20),
-                      style: IconButton.styleFrom(
-                        backgroundColor: color,
-                        foregroundColor: _sobre(color),
-                      ),
-                      tooltip: sonando ? _t('pause_tooltip') : _t('resume_tooltip'),
-                      icon: Icon(sonando ? Icons.pause : Icons.play_arrow),
-                      onPressed: sonando ? repro.pause : repro.play,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: repro.detener,
-                    icon: const Icon(Icons.stop),
-                    label: Text(_t('stop_radio')),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(_t('up_next'), style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
-                for (final p in proximas)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Text(
-                      _hora(p.inicioMs),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    title: Text(p.seg.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: Icon(_iconoTipo(p.seg.tipo), size: 20),
-                  ),
-                ValueListenableBuilder<List<EntradaHistorial>>(
-                  valueListenable: repro.historial,
-                  builder: (context, items, _) {
-                    final carpetaActual = emisora?.carpeta;
-                    final recientes = items
-                        .where((h) => carpetaActual == null || h.carpeta == carpetaActual)
-                        .where((h) => !(h.titulo == seg.titulo && h.tipo == seg.tipo))
-                        .take(8)
-                        .toList();
-                    if (recientes.isEmpty) return const SizedBox.shrink();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _t('recent_tracks'),
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            TextButton(
-                              onPressed: () => repro.limpiarHistorial(carpetaActual),
-                              child: Text(_t('clear_btn')),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        for (final h in recientes)
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Text(
-                              _hora(h.horaMs),
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: cs.onSurfaceVariant,
-                                fontFeatures: const [FontFeature.tabularFigures()],
-                              ),
-                            ),
-                            title: Text(
-                              h.titulo,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Icon(_iconoTipo(h.tipo), size: 20),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Logotipo grande de la emisora. Sin imagen: cuadrado de color con su nombre.
-class _Portada extends StatelessWidget {
-  final String nombre;
-  final String tipo;
-  final Color color;
-  final String? logo;
-  const _Portada({
-    required this.nombre,
-    required this.tipo,
-    required this.color,
-    this.logo,
-  });
-
-  Widget _rotulo() {
-    final texto = _sobre(color);
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Stack(
-        children: [
-          Center(
-            child: Text(
-              nombre,
-              textAlign: TextAlign.center,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: texto,
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                height: 1.05,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Icon(_iconoTipo(tipo), key: ValueKey(tipo), color: texto, size: 28),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rotulo = _rotulo();
-    if (logo == null) return rotulo;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: Image.file(
-        File(logo!),
-        fit: BoxFit.cover,
-        cacheWidth: 900,
-        errorBuilder: (_, __, ___) => rotulo,
-      ),
-    );
-  }
-}
-
 class _InsigniaDirecto extends StatelessWidget {
   final Reproductor repro;
   const _InsigniaDirecto({required this.repro});
@@ -2186,41 +2870,6 @@ class _InsigniaDirecto extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _TituloPista extends StatelessWidget {
-  final Segmento seg;
-  const _TituloPista({super.key, required this.seg});
-
-  @override
-  Widget build(BuildContext context) {
-    final partes = _separarTitulo(seg);
-    final tema = Theme.of(context).textTheme;
-    return Column(
-      children: [
-        Text(
-          partes.titulo,
-          textAlign: TextAlign.center,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: tema.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        if (partes.artista != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              partes.artista!,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: tema.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
@@ -2288,41 +2937,1896 @@ class _ProgresoPistaState extends State<_ProgresoPista> {
 }
 
 // ---------------------------------------------------------------------------
-// Barra inferior de reproducción
+// UI Vertical estilo selector de radio GTA VI
 // ---------------------------------------------------------------------------
 
-class _BarraReproduccion extends StatelessWidget {
-  final Reproductor repro;
-  const _BarraReproduccion({required this.repro});
+Future<void> abrirDialGTA(BuildContext context, List<Emisora> emisoras) {
+  return Navigator.of(context).push(PageRouteBuilder<void>(
+    opaque: false,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, __, ___) => PantallaDialGTA(emisoras: emisoras),
+    transitionsBuilder: (_, anim, __, child) => FadeTransition(
+      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+      child: child,
+    ),
+  ));
+}
+
+class PantallaInicioGTA extends StatefulWidget {
+  const PantallaInicioGTA({super.key});
+
+  @override
+  State<PantallaInicioGTA> createState() => _PantallaInicioGTAState();
+}
+
+class _PantallaInicioGTAState extends State<PantallaInicioGTA> {
+  final repro = radio;
+  final PageController _pageCtrl = PageController(viewportFraction: 0.62);
+  List<Emisora> _emisoras = const [];
+  bool _cargando = true;
+  int _indice = 0;
+  int _subModo = 0; // 0 = LIVE RADIO, 1 = UP NEXT, 2 = RECENT
+  Timer? _relojTick;
+
+  @override
+  void initState() {
+    super.initState();
+    _relojTick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+    _cargarEmisoras(sintonizarInicial: true);
+  }
+
+  @override
+  void dispose() {
+    _relojTick?.cancel();
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _cargarEmisoras({
+    bool sintonizarInicial = false,
+    String? enfocarCarpeta,
+  }) async {
+    final lista = await cargarEmisorasDisco();
+    if (!mounted) return;
+
+    var nuevoIndice = 0;
+    var debeSintonizarNueva = false;
+    if (lista.isNotEmpty) {
+      if (enfocarCarpeta != null) {
+        final idxNueva = lista.indexWhere((e) => e.carpeta == enfocarCarpeta);
+        if (idxNueva >= 0) {
+          nuevoIndice = idxNueva;
+          debeSintonizarNueva = true;
+        }
+      } else {
+        final actual = repro.emisoraActual.value;
+        if (actual != null) {
+          final idx = lista.indexWhere((e) => e.carpeta == actual.carpeta);
+          if (idx >= 0) nuevoIndice = idx;
+        } else {
+          nuevoIndice = _indice.clamp(0, lista.length - 1);
+        }
+      }
+    }
+
+    setState(() {
+      _emisoras = lista;
+      _indice = nuevoIndice;
+      _cargando = false;
+    });
+
+    if (lista.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageCtrl.hasClients) {
+          _pageCtrl.jumpToPage(nuevoIndice);
+        }
+      });
+    }
+
+    if (debeSintonizarNueva) {
+      unawaited(repro.sintonizar(lista[nuevoIndice]));
+    } else if (sintonizarInicial &&
+        lista.isNotEmpty &&
+        repro.emisoraActual.value == null &&
+        repro.actual.value == null) {
+      unawaited(repro.sintonizar(lista[nuevoIndice]));
+    }
+  }
+
+  Future<void> _anadirDirecto() async {
+    final carpetaCreada = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => PantallaImportar(repro: repro)),
+    );
+    if (carpetaCreada != null && mounted) {
+      await _cargarEmisoras(
+        sintonizarInicial: true,
+        enfocarCarpeta: carpetaCreada,
+      );
+    }
+  }
+
+  Future<void> _importarDirecto() async {
+    final antes = _emisoras.map((e) => e.carpeta).toSet();
+    final ok = await _importarPaqueteConDialogo(context);
+    if (!ok || !mounted) return;
+    final lista = await cargarEmisorasDisco();
+    String? nuevaCarpeta;
+    for (final e in lista) {
+      if (!antes.contains(e.carpeta)) {
+        nuevaCarpeta = e.carpeta;
+        break;
+      }
+    }
+    await _cargarEmisoras(
+      sintonizarInicial: true,
+      enfocarCarpeta: nuevaCarpeta,
+    );
+  }
+
+  Future<void> _abrirMenuCrear() async {
+    final opcion = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF101016),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Colors.white12),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Text(
+                _t('create_station'),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _OpcionMenuGTA(
+                icono: Icons.add,
+                titulo: _t('new_station').toUpperCase(),
+                subtitulo: _t('new_station_desc'),
+                destacado: true,
+                onTap: () => Navigator.pop(ctx, 'crear'),
+              ),
+              const SizedBox(height: 10),
+              _OpcionMenuGTA(
+                icono: Icons.file_open_outlined,
+                titulo: _t('import_gtaradio').toUpperCase(),
+                subtitulo: _t('import_gtaradio_desc'),
+                onTap: () => Navigator.pop(ctx, 'importar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || opcion == null) return;
+    if (opcion == 'crear') {
+      await _anadirDirecto();
+    } else if (opcion == 'importar') {
+      await _importarDirecto();
+    }
+  }
+
+  Future<void> _abrirMenuEmisora(Emisora e) async {
+    HapticFeedback.mediumImpact();
+    final opcion = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: const Color(0xFF101016),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: Colors.white12),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _LogoMini(ruta: e.logo, nombre: e.nombre, tam: 26),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      e.nombre.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _OpcionMenuGTA(
+                icono: Icons.edit_outlined,
+                titulo: _t('edit_tracks').toUpperCase(),
+                subtitulo: _t('edit_tracks_desc'),
+                destacado: true,
+                onTap: () => Navigator.pop(ctx, 'editar'),
+              ),
+              const SizedBox(height: 10),
+              _OpcionMenuGTA(
+                icono: Icons.ios_share,
+                titulo: _t('export_radio').toUpperCase(),
+                subtitulo: _t('export_radio_desc'),
+                onTap: () => Navigator.pop(ctx, 'exportar'),
+              ),
+              const SizedBox(height: 10),
+              _OpcionMenuGTA(
+                icono: Icons.delete_outline,
+                titulo: _t('delete_radio').toUpperCase(),
+                subtitulo: _t('delete_radio_body'),
+                peligro: true,
+                onTap: () => Navigator.pop(ctx, 'borrar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || opcion == null) return;
+    if (opcion == 'editar') {
+      final guardado = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => PantallaEditar(emisora: e)),
+      );
+      if (guardado == true && mounted) {
+        await _cargarEmisoras(enfocarCarpeta: e.carpeta);
+      }
+    } else if (opcion == 'exportar') {
+      await _ejecutarConEspera(
+        context,
+        _t('preparing_radio', {'nombre': e.nombre}),
+        () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
+      );
+    } else if (opcion == 'borrar') {
+      await _borrarEmisora(e);
+    }
+  }
+
+  Future<void> _borrarEmisora(Emisora e) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF101016),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Colors.white12),
+        ),
+        title: Text(
+          _t('delete_radio_title', {'nombre': e.nombre}).toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
+          ),
+        ),
+        content: Text(
+          _t('delete_radio_body'),
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              _t('cancel').toUpperCase(),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              _t('delete').toUpperCase(),
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await repro.olvidar(e.carpeta);
+    await Directory(e.carpeta).delete(recursive: true);
+    if (mounted) {
+      await _cargarEmisoras(sintonizarInicial: true);
+    }
+  }
+
+  Emisora get _enfocada => _emisoras[_indice.clamp(0, _emisoras.length - 1)];
+
+  void _seleccionarIndice(int i, {bool animar = true}) {
+    if (_emisoras.isEmpty) return;
+    final destino = i.clamp(0, _emisoras.length - 1);
+    if (animar && _pageCtrl.hasClients) {
+      _pageCtrl.animateToPage(
+        destino,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    setState(() => _indice = destino);
+    final e = _emisoras[destino];
+    if (repro.emisoraActual.value?.carpeta != e.carpeta || !repro.sonando.value) {
+      repro.sintonizar(e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: idiomaApp,
+      builder: (context, _, __) {
+        if (_cargando) {
+          return const Scaffold(
+            backgroundColor: Colors.black,
+            body: Center(child: CircularProgressIndicator(color: Colors.white)),
+          );
+        }
+
+        if (_emisoras.isEmpty) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  const Positioned(
+                    top: 8,
+                    right: 12,
+                    child: _BotonIdioma(color: Colors.white70, tam: 22),
+                  ),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _t('no_stations_dial'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          _BotonHudGTA(
+                            icono: Icons.add,
+                            etiqueta: _t('create_station'),
+                            onTap: _abrirMenuCrear,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+    final e = _enfocada;
+    final color = _colorEmisora(e.nombre);
+    final total = _emisoras.length;
+
     return ValueListenableBuilder<Segmento?>(
       valueListenable: repro.actual,
-      builder: (_, seg, __) {
-        if (seg == null) return const SizedBox.shrink();
-        return SafeArea(
-          child: ListTile(
-            tileColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-            onTap: () => abrirReproduccion(context),
-            leading: Icon(_iconoTipo(seg.tipo)),
-            title: Text(seg.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${repro.emisoraActual.value?.nombre ?? ''} · ${_t('live_upper')}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ValueListenableBuilder<bool>(
-                  valueListenable: repro.sonando,
-                  builder: (_, sonando, __) => IconButton(
-                    icon: Icon(sonando ? Icons.pause : Icons.play_arrow),
-                    onPressed: sonando ? repro.pause : repro.play,
+      builder: (context, segRepro, _) {
+        final apagada = segRepro == null;
+        final seg = repro.segmentoEnVivo(e);
+        final partes = seg == null ? null : _separarTitulo(seg);
+
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Fondo atmosférico con el arte/color de la emisora desenfocado
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 350),
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.25),
+                    radius: 1.15,
+                    colors: [
+                      color.withValues(alpha: apagada ? 0.16 : 0.42),
+                      const Color(0xFF0B0B10),
+                      Colors.black,
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              if (e.logo != null)
+                Opacity(
+                  opacity: apagada ? 0.08 : 0.22,
+                  child: Image.file(
+                    File(e.logo!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.72),
+                      Colors.black.withValues(alpha: 0.35),
+                      Colors.black.withValues(alpha: 0.88),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Contenido vertical estilo HUD GTA VI
+              SafeArea(
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    final altoCarrusel =
+                        (MediaQuery.sizeOf(context).width * 0.58).clamp(198.0, 260.0);
+                    final espacioCentro =
+                        ((box.maxHeight - 92 - altoCarrusel - 300) * 0.65)
+                            .clamp(10.0, 140.0);
+                    return Column(
+                      children: [
+                    // 1. Barra superior: Idioma | Selector vertical de modo | Botón TURN OFF
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 12, 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const _BotonIdioma(color: Colors.white70, tam: 21),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: _SelectorVerticalGTA(
+                                  indice: _subModo,
+                                  acento: color,
+                                  etiquetas: [
+                                    _t('mode_live'),
+                                    _t('mode_queue'),
+                                    _t('mode_history'),
+                                  ],
+                                  onChanged: (m) => setState(() => _subModo = m),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {
+                              if (apagada) {
+                                repro.sintonizar(e);
+                              } else {
+                                repro.detener();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      apagada ? Icons.power_settings_new : Icons.close,
+                                      size: 14,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    apagada ? _t('live_upper') : _t('turn_off'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      curve: Curves.easeOutCubic,
+                      height: _subModo == 0 ? espacioCentro : 12.0,
+                    ),
+
+                    // 2. Carrusel horizontal de carátulas cuadradas con flechas < >
+                    SizedBox(
+                      height: altoCarrusel,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          PageView.builder(
+                            controller: _pageCtrl,
+                            itemCount: total,
+                            onPageChanged: (i) {
+                              setState(() => _indice = i);
+                              final sel = _emisoras[i];
+                              if (repro.emisoraActual.value?.carpeta != sel.carpeta) {
+                                repro.sintonizar(sel);
+                              }
+                            },
+                            itemBuilder: (_, i) {
+                              final item = _emisoras[i];
+                              final seleccionada = i == _indice && !apagada;
+                              final cItem = _colorEmisora(item.nombre);
+                              return GestureDetector(
+                                onTap: () => _seleccionarIndice(i),
+                                onLongPress: () => _abrirMenuEmisora(item),
+                                child: AnimatedScale(
+                                  scale: i == _indice ? 1.0 : 0.70,
+                                  duration: const Duration(milliseconds: 220),
+                                  curve: Curves.easeOutCubic,
+                                  child: AnimatedOpacity(
+                                    opacity: i == _indice ? 1.0 : 0.58,
+                                    duration: const Duration(milliseconds: 220),
+                                    child: Center(
+                                      child: AspectRatio(
+                                        aspectRatio: 1,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: seleccionada
+                                                  ? Colors.white
+                                                  : Colors.white24,
+                                              width: seleccionada ? 3.5 : 1,
+                                            ),
+                                            boxShadow: seleccionada
+                                                ? [
+                                              BoxShadow(
+                                                color: cItem.withValues(alpha: 0.55),
+                                                blurRadius: 22,
+                                                spreadRadius: 2,
+                                              ),
+                                            ]
+                                                : null,
+                                          ),
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(3),
+                                            child: item.logo != null
+                                                ? Image.file(
+                                              File(item.logo!),
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  _CaratulaFallbackGTA(nombre: item.nombre),
+                                            )
+                                                : _CaratulaFallbackGTA(nombre: item.nombre),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          if (_indice > 0)
+                            Positioned(
+                              left: 8,
+                              child: IconButton(
+                                onPressed: () => _seleccionarIndice(_indice - 1),
+                                icon: const Icon(Icons.chevron_left, color: Colors.white70, size: 32),
+                              ),
+                            ),
+                          if (_indice < total - 1)
+                            Positioned(
+                              right: 8,
+                              child: IconButton(
+                                onPressed: () => _seleccionarIndice(_indice + 1),
+                                icon: const Icon(Icons.chevron_right, color: Colors.white70, size: 32),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // 3. Barra indicadora del dial
+                    _IndicadorDialGTA(
+                      indice: _indice,
+                      total: total,
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // 4. Bloque central de metadatos en mayúsculas estilo GTA VI
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          Text(
+                            e.nombre.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 25,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                              height: 1.08,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (apagada || seg == null || partes == null)
+                            Text(
+                              _t('radio_off'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.1,
+                              ),
+                            )
+                          else ...[
+                            Text(
+                              partes.titulo.toUpperCase(),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              (partes.artista ?? _etiquetaTipo(seg.tipo)).toUpperCase(),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.9,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // 5. Panel inferior dinámico según el selector vertical
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                        child: _PanelInferiorGTA(
+                          repro: repro,
+                          emisora: e,
+                          seg: seg,
+                          color: color,
+                          subModo: _subModo,
+                          apagada: apagada,
+                        ),
+                      ),
+                    ),
+
+                    // 6. Botón inferior estilo HUD GTA para crear o importar emisora
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _BotonHudGTA(
+                            icono: Icons.add,
+                            etiqueta: _t('create_station'),
+                            acento: color,
+                            onTap: _abrirMenuCrear,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+              ),
+              ),
+            ],
           ),
         );
       },
+    );
+      },
+    );
+  }
+}
+
+class _BotonHudGTA extends StatelessWidget {
+  final IconData icono;
+  final String etiqueta;
+  final Color? acento;
+  final VoidCallback onTap;
+
+  const _BotonHudGTA({
+    required this.icono,
+    required this.etiqueta,
+    required this.onTap,
+    this.acento,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borde = acento?.withValues(alpha: 0.55) ?? Colors.white30;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: borde),
+            boxShadow: acento != null
+                ? [
+                    BoxShadow(
+                      color: acento!.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icono, size: 15, color: Colors.black),
+              ),
+              const SizedBox(width: 9),
+              Text(
+                etiqueta,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpcionMenuGTA extends StatelessWidget {
+  final IconData icono;
+  final String titulo;
+  final String subtitulo;
+  final bool destacado;
+  final bool peligro;
+  final VoidCallback onTap;
+
+  const _OpcionMenuGTA({
+    required this.icono,
+    required this.titulo,
+    required this.subtitulo,
+    required this.onTap,
+    this.destacado = false,
+    this.peligro = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = peligro
+        ? Colors.redAccent.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: destacado ? 0.09 : 0.05);
+    final borderColor = peligro
+        ? Colors.redAccent.withValues(alpha: 0.35)
+        : (destacado ? Colors.white30 : Colors.white12);
+    final badgeColor = peligro
+        ? Colors.redAccent.withValues(alpha: 0.18)
+        : (destacado ? Colors.white : Colors.white.withValues(alpha: 0.14));
+    final iconColor = peligro
+        ? Colors.redAccent
+        : (destacado ? Colors.black : Colors.white);
+    final titleColor = peligro ? Colors.redAccent : Colors.white;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: badgeColor,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icono, size: 18, color: iconColor),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: TextStyle(
+                        color: titleColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                        letterSpacing: 0.9,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitulo,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: peligro ? Colors.redAccent.withValues(alpha: 0.7) : Colors.white54,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CaratulaFallbackGTA extends StatelessWidget {
+  final String nombre;
+  const _CaratulaFallbackGTA({required this.nombre});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _colorEmisora(nombre);
+    final texto = _sobre(c);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            c,
+            Color.lerp(c, Colors.black, 0.35)!,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.all(10),
+      alignment: Alignment.center,
+      child: Text(
+        nombre.toUpperCase(),
+        textAlign: TextAlign.center,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: texto,
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          height: 1.05,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectorVerticalGTA extends StatelessWidget {
+  final int indice;
+  final List<String> etiquetas;
+  final ValueChanged<int> onChanged;
+  final Color? acento;
+
+  const _SelectorVerticalGTA({
+    required this.indice,
+    required this.etiquetas,
+    required this.onChanged,
+    this.acento,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorAcento = acento ?? Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (var i = 0; i < etiquetas.length; i++)
+            GestureDetector(
+              onTap: () => onChanged(i),
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                decoration: BoxDecoration(
+                  color: i == indice
+                      ? Colors.white.withValues(alpha: 0.16)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      etiquetas[i],
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: i == indice ? Colors.white : Colors.white70,
+                        fontSize: i == indice ? 12 : 11.5,
+                        fontWeight: i == indice ? FontWeight.w900 : FontWeight.w700,
+                        letterSpacing: 0.9,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: Center(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: i == indice ? 18 : 10,
+                          height: i == indice ? 18 : 10,
+                          decoration: BoxDecoration(
+                            color: i == indice ? Colors.white : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: i == indice
+                                ? Border.all(color: Colors.black, width: 1.5)
+                                : Border.all(color: Colors.white60, width: 1.4),
+                            boxShadow: i == indice
+                                ? [
+                                    BoxShadow(
+                                      color: colorAcento.withValues(alpha: 0.65),
+                                      blurRadius: 8,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          alignment: Alignment.center,
+                          child: i == indice
+                              ? const Text(
+                                  'R',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IndicadorDialGTA extends StatelessWidget {
+  final int indice;
+  final int total;
+
+  const _IndicadorDialGTA({
+    required this.indice,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final frac = total <= 1 ? 0.5 : (indice / (total - 1)).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 64),
+      child: SizedBox(
+        height: 14,
+        child: LayoutBuilder(
+          builder: (_, box) {
+            final ancho = box.maxWidth;
+            const anchoThumb = 24.0;
+            final x = (ancho - anchoThumb) * frac;
+            return Stack(
+              alignment: Alignment.centerLeft,
+              children: [
+                Container(
+                  height: 2,
+                  width: ancho,
+                  color: Colors.white30,
+                ),
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  left: x,
+                  child: Container(
+                    width: anchoThumb,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _PanelInferiorGTA extends StatelessWidget {
+  final Reproductor repro;
+  final Emisora emisora;
+  final Segmento? seg;
+  final Color color;
+  final int subModo;
+  final bool apagada;
+
+  const _PanelInferiorGTA({
+    required this.repro,
+    required this.emisora,
+    required this.seg,
+    required this.color,
+    required this.subModo,
+    required this.apagada,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget contenido;
+    final Object clave;
+
+    if (apagada || seg == null) {
+      clave = 'apagada';
+      contenido = Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton.filled(
+              iconSize: 40,
+              padding: const EdgeInsets.all(18),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
+              icon: const Icon(Icons.play_arrow),
+              onPressed: () => repro.sintonizar(emisora),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _t('tap_station_to_tune'),
+              style: const TextStyle(color: Colors.white60, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    } else if (subModo == 1) {
+      final proximas = repro.proximas(5);
+      clave = 'siguiente_${emisora.carpeta}';
+      contenido = _ListaDesplegableGTA(
+        key: ValueKey(clave),
+        items: [
+          for (final p in proximas)
+            _ItemListaGTA(
+              hora: _hora(p.inicioMs),
+              titulo: p.seg.titulo,
+              tipo: p.seg.tipo,
+            ),
+        ],
+      );
+    } else if (subModo == 2) {
+      final actual = seg!;
+      clave = 'historial_${emisora.carpeta}';
+      contenido = ValueListenableBuilder<List<EntradaHistorial>>(
+        valueListenable: repro.historial,
+        builder: (_, items, __) {
+          final recientes = items
+              .where((h) => h.carpeta == emisora.carpeta)
+              .where((h) => !(h.titulo == actual.titulo && h.tipo == actual.tipo))
+              .take(6)
+              .toList();
+          return _ListaDesplegableGTA(
+            key: ValueKey(clave),
+            textoVacio: _t('recent_tracks'),
+            items: [
+              for (final h in recientes)
+                _ItemListaGTA(
+                  hora: _hora(h.horaMs),
+                  titulo: h.titulo,
+                  tipo: h.tipo,
+                ),
+            ],
+          );
+        },
+      );
+    } else {
+      final actual = seg!;
+      clave = 'directo';
+      contenido = Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_iconoTipo(actual.tipo), size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                _etiquetaTipo(actual.tipo).toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(width: 14),
+              _InsigniaDirecto(repro: repro),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<bool>(
+            valueListenable: repro.sonando,
+            builder: (_, sonando, __) => IconButton.filled(
+              iconSize: 40,
+              padding: const EdgeInsets.all(18),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
+              tooltip: sonando ? _t('pause_tooltip') : _t('resume_tooltip'),
+              icon: Icon(sonando ? Icons.pause : Icons.play_arrow),
+              onPressed: sonando ? repro.pause : repro.play,
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 240),
+      reverseDuration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        fit: StackFit.expand,
+        alignment: Alignment.center,
+        children: [
+          ...previousChildren,
+          if (currentChild != null) currentChild,
+        ],
+      ),
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+          ).animate(anim),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey(clave),
+        child: contenido,
+      ),
+    );
+  }
+}
+
+class _ItemListaGTA {
+  final String hora;
+  final String titulo;
+  final String tipo;
+
+  const _ItemListaGTA({
+    required this.hora,
+    required this.titulo,
+    required this.tipo,
+  });
+}
+
+class _ListaDesplegableGTA extends StatelessWidget {
+  final List<_ItemListaGTA> items;
+  final String? textoVacio;
+
+  const _ListaDesplegableGTA({
+    super.key,
+    required this.items,
+    this.textoVacio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06 * t),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12 * t),
+            ),
+          ),
+          child: items.isEmpty
+              ? Center(
+                  child: Opacity(
+                    opacity: t,
+                    child: Text(
+                      textoVacio ?? '',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  itemCount: items.length,
+                  itemBuilder: (_, idx) {
+                    final item = items[idx];
+                    final inicio = (idx * 0.09).clamp(0.0, 0.45);
+                    final itemT = ((t - inicio) / (1.0 - inicio)).clamp(0.0, 1.0);
+                    final curva = Curves.easeOutCubic.transform(itemT);
+                    return Opacity(
+                      opacity: curva,
+                      child: Transform.translate(
+                        offset: Offset(0, (1.0 - curva) * 14),
+                        child: ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Text(
+                            item.hora,
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          title: Text(
+                            item.titulo.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          trailing: Icon(
+                            _iconoTipo(item.tipo),
+                            color: Colors.white70,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dial radial interactivo estilo GTA
+// ---------------------------------------------------------------------------
+
+class PantallaDialGTA extends StatefulWidget {
+  final List<Emisora> emisoras;
+  const PantallaDialGTA({super.key, required this.emisoras});
+
+  @override
+  State<PantallaDialGTA> createState() => _PantallaDialGTAState();
+}
+
+class _PantallaDialGTAState extends State<PantallaDialGTA> {
+  final repro = radio;
+  late int _indice;
+  Timer? _relojTick;
+
+  @override
+  void initState() {
+    super.initState();
+    _indice = _indiceInicial();
+    _relojTick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  int _indiceInicial() {
+    if (widget.emisoras.isEmpty) return 0;
+    final actual = repro.emisoraActual.value;
+    if (actual != null) {
+      final idx = widget.emisoras.indexWhere((e) => e.carpeta == actual.carpeta);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  }
+
+  @override
+  void dispose() {
+    _relojTick?.cancel();
+    super.dispose();
+  }
+
+  Emisora get _enfocada =>
+      widget.emisoras[_indice.clamp(0, widget.emisoras.length - 1)];
+
+  void _seleccionar(int i) {
+    if (widget.emisoras.isEmpty) return;
+    final destino = i.clamp(0, widget.emisoras.length - 1);
+    final e = widget.emisoras[destino];
+    setState(() => _indice = destino);
+    if (repro.emisoraActual.value?.carpeta != e.carpeta ||
+        !repro.sonando.value) {
+      repro.sintonizar(e);
+    }
+  }
+
+  void _actualizarDesdeToque(
+      Offset localPos,
+      double centro,
+      double radioAnillo,
+      double radioNodo,
+      ) {
+    final total = widget.emisoras.length;
+    if (total == 0) return;
+    final dx = localPos.dx - centro;
+    final dy = localPos.dy - centro;
+    final dist = sqrt(dx * dx + dy * dy);
+
+    // Ignora el arrastre si el dedo está sobre el botón central
+    if (dist < radioAnillo - radioNodo * 1.15) return;
+
+    // Ángulo desde las 12 en punto (-pi/2) en sentido horario [0, 2*pi)
+    var angulo = atan2(dy, dx) + pi / 2;
+    if (angulo < 0) angulo += 2 * pi;
+
+    final paso = (2 * pi) / total;
+    final idx = ((angulo + paso / 2) ~/ paso) % total;
+    if (idx != _indice ||
+        repro.emisoraActual.value?.carpeta != widget.emisoras[idx].carpeta) {
+      _seleccionar(idx);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.emisoras.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black.withValues(alpha: 0.9),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: Colors.white),
+            tooltip: _t('close_tooltip'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+      );
+    }
+
+    final e = _enfocada;
+    final color = _colorEmisora(e.nombre);
+    final total = widget.emisoras.length;
+
+    return ValueListenableBuilder<Segmento?>(
+      valueListenable: repro.actual,
+      builder: (context, segRepro, _) {
+        final apagada = segRepro == null;
+        final seg = repro.segmentoEnVivo(e);
+        final partes = seg == null ? null : _separarTitulo(seg);
+
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Fondo translúcido compatible con PageRouteBuilder(opaque: false)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: const Alignment(0, -0.15),
+                    radius: 1.1,
+                    colors: [
+                      color.withValues(alpha: apagada ? 0.22 : 0.45),
+                      const Color(0xEA09090E),
+                      const Color(0xF7000000),
+                    ],
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Column(
+                  children: [
+                    // Barra superior: cerrar dial, título y apagar/encender
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 16, 4),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            tooltip: _t('close_tooltip'),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _t('dial_mode_tooltip').toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.3,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {
+                              if (apagada) {
+                                repro.sintonizar(e);
+                              } else {
+                                repro.detener();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    apagada
+                                        ? Icons.power_settings_new
+                                        : Icons.volume_off,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    apagada
+                                        ? _t('live_upper')
+                                        : _t('turn_off'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      letterSpacing: 1.0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Dial radial interactivo (toque o arrastre circular)
+                    Expanded(
+                      child: Center(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final lado = min(
+                              constraints.maxWidth,
+                              constraints.maxHeight,
+                            ).clamp(240.0, 380.0);
+                            final centro = lado / 2;
+                            final radioNodo = total <= 6
+                                ? 32.0
+                                : (lado * 0.42 / total).clamp(20.0, 30.0);
+                            final radioAnillo = centro - radioNodo - 12;
+
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onPanStart: (d) => _actualizarDesdeToque(
+                                d.localPosition,
+                                centro,
+                                radioAnillo,
+                                radioNodo,
+                              ),
+                              onPanUpdate: (d) => _actualizarDesdeToque(
+                                d.localPosition,
+                                centro,
+                                radioAnillo,
+                                radioNodo,
+                              ),
+                              child: SizedBox(
+                                width: lado,
+                                height: lado,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: radioAnillo * 2,
+                                      height: radioAnillo * 2,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.14),
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Botón central: apagar/encender radio
+                                    GestureDetector(
+                                      onTap: () {
+                                        if (apagada) {
+                                          repro.sintonizar(e);
+                                        } else {
+                                          repro.detener();
+                                        }
+                                      },
+                                      child: AnimatedContainer(
+                                        duration:
+                                        const Duration(milliseconds: 220),
+                                        width: radioAnillo * 0.72,
+                                        height: radioAnillo * 0.72,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: apagada
+                                              ? Colors.white
+                                              .withValues(alpha: 0.14)
+                                              : Colors.black
+                                              .withValues(alpha: 0.65),
+                                          border: Border.all(
+                                            color: apagada
+                                                ? Colors.white54
+                                                : color,
+                                            width: 2.5,
+                                          ),
+                                          boxShadow: [
+                                            if (!apagada)
+                                              BoxShadow(
+                                                color: color.withValues(
+                                                    alpha: 0.35),
+                                                blurRadius: 18,
+                                              ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              apagada
+                                                  ? Icons.power_settings_new
+                                                  : Icons.radio,
+                                              color: Colors.white,
+                                              size: 26,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              apagada
+                                                  ? 'OFF'
+                                                  : '${_indice + 1}/$total',
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.8,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Emisoras en círculo
+                                    for (var i = 0; i < total; i++)
+                                      _construirNodoEmisora(
+                                        indice: i,
+                                        total: total,
+                                        centro: centro,
+                                        radioAnillo: radioAnillo,
+                                        radioNodo: radioNodo,
+                                        apagada: apagada,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    // Metadatos en directo y controles de reproducción
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            e.nombre.toUpperCase(),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          if (apagada || seg == null || partes == null)
+                            Text(
+                              _t('radio_off'),
+                              style: const TextStyle(
+                                color: Colors.white60,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.0,
+                              ),
+                            )
+                          else ...[
+                            Text(
+                              partes.titulo.toUpperCase(),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.7,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              (partes.artista ?? _etiquetaTipo(seg.tipo))
+                                  .toUpperCase(),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _InsigniaDirecto(repro: repro),
+                            const SizedBox(height: 10),
+                            _ProgresoPista(
+                              repro: repro,
+                              seg: seg,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(height: 10),
+                            ValueListenableBuilder<bool>(
+                              valueListenable: repro.sonando,
+                              builder: (_, sonando, __) => IconButton.filled(
+                                iconSize: 34,
+                                padding: const EdgeInsets.all(14),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                ),
+                                tooltip: sonando
+                                    ? _t('pause_tooltip')
+                                    : _t('resume_tooltip'),
+                                icon: Icon(
+                                  sonando ? Icons.pause : Icons.play_arrow,
+                                ),
+                                onPressed:
+                                sonando ? repro.pause : repro.play,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _construirNodoEmisora({
+    required int indice,
+    required int total,
+    required double centro,
+    required double radioAnillo,
+    required double radioNodo,
+    required bool apagada,
+  }) {
+    final item = widget.emisoras[indice];
+    final enfocada = indice == _indice;
+    final activa = enfocada && !apagada;
+    final cItem = _colorEmisora(item.nombre);
+
+    final angulo = -pi / 2 + (2 * pi * indice) / total;
+    final x = centro + radioAnillo * cos(angulo) - radioNodo;
+    final y = centro + radioAnillo * sin(angulo) - radioNodo;
+
+    return Positioned(
+      left: x,
+      top: y,
+      child: GestureDetector(
+        onTap: () => _seleccionar(indice),
+        child: AnimatedScale(
+          scale: enfocada ? 1.18 : 0.92,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: enfocada ? 1.0 : 0.65,
+            duration: const Duration(milliseconds: 180),
+            child: Container(
+              width: radioNodo * 2,
+              height: radioNodo * 2,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: cItem,
+                border: Border.all(
+                  color: activa
+                      ? Colors.white
+                      : (enfocada ? Colors.white70 : Colors.white24),
+                  width: activa ? 3.2 : 1.5,
+                ),
+                boxShadow: activa
+                    ? [
+                  BoxShadow(
+                    color: cItem.withValues(alpha: 0.7),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                  ),
+                ]
+                    : null,
+              ),
+              child: ClipOval(
+                child: item.logo != null
+                    ? Image.file(
+                  File(item.logo!),
+                  fit: BoxFit.cover,
+                  cacheWidth: (radioNodo * 6).round(),
+                  errorBuilder: (_, __, ___) =>
+                      _CaratulaFallbackGTA(nombre: item.nombre),
+                )
+                    : _CaratulaFallbackGTA(nombre: item.nombre),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

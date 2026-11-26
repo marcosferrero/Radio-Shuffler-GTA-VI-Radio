@@ -1,6 +1,6 @@
-# radioshuffler
+# radiogta
 
-My first flutter project, worked with Claude.ai for the app
+A new Flutter project.
 
 ## Getting Started
 

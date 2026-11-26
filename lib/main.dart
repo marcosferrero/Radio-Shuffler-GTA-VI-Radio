@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'radio_paquete.dart';
+
 late Reproductor radio;
 
 Future<void> main() async {
@@ -623,6 +625,70 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
     if (guardado == true) _cargar();
   }
 
+  /// Muestra un diálogo de espera mientras dura [tarea] (empaquetar/desempaquetar
+  /// archivos grandes puede tardar) y enseña el error si falla.
+  Future<bool> _conEspera(String texto, Future<void> Function() tarea) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Expanded(child: Text(texto)),
+          ]),
+        ),
+      ),
+    );
+    try {
+      await tarea();
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+      return false;
+    } finally {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
+
+  Future<void> _exportar(Emisora e) async {
+    await _conEspera(
+      'Preparando «${e.nombre}»…',
+          () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
+    );
+  }
+
+  Future<void> _importarPaquete() async {
+    // La extensión .gtaradio no tiene tipo MIME conocido: se deja elegir cualquier archivo
+    // y es importarRadio quien valida que sea un paquete.
+    final f = await FilePicker.pickFile();
+    final ruta = f?.path;
+    if (f == null || ruta == null || !mounted) return;
+    final base = await carpetaRadios();
+    final ok = await _conEspera(
+      'Importando radio…',
+          () async {
+        await importarRadio(paquete: File(ruta), base: base);
+        // La copia de la caché del selector ya no hace falta.
+        try {
+          await File(ruta).delete();
+        } catch (_) {}
+      },
+    );
+    if (ok) {
+      await _cargar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Radio importada.')),
+        );
+      }
+    }
+  }
+
   Future<void> _borrar(Emisora e) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -644,7 +710,16 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Radio')),
+      appBar: AppBar(
+        title: const Text('Radio'),
+        actions: [
+          IconButton(
+            tooltip: 'Importar radio (.gtaradio)',
+            icon: const Icon(Icons.file_download_outlined),
+            onPressed: _importarPaquete,
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _anadir,
         icon: const Icon(Icons.add),
@@ -675,10 +750,12 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
             trailing: PopupMenuButton<String>(
               onSelected: (v) {
                 if (v == 'editar') _editar(e);
+                if (v == 'exportar') _exportar(e);
                 if (v == 'borrar') _borrar(e);
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'editar', child: Text('Editar pistas')),
+                PopupMenuItem(value: 'exportar', child: Text('Exportar radio')),
                 PopupMenuItem(value: 'borrar', child: Text('Borrar radio')),
               ],
             ),

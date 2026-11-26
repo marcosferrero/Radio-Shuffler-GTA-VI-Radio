@@ -1,0 +1,40 @@
+RADIO GTA - paquete para Android Studio (Flutter)
+=================================================
+
+Este paquete contiene SOLO los archivos propios del proyecto. El resto
+(gradle, iconos, etc.) lo genera Flutter al crear el proyecto.
+
+1) Crear el proyecto vacio
+   Android Studio > File > New > New Flutter Project
+     - Flutter SDK: la carpeta donde descomprimiste Flutter
+     - Project name: gtaradio
+     - Organization: com.example        (importante: debe ser exactamente esta)
+     - Platforms: solo Android
+   (o por terminal:  flutter create --org com.example --platforms android gtaradio)
+
+2) Copiar este paquete encima
+   Descomprime el zip y copia TODO su contenido dentro de la carpeta gtaradio,
+   aceptando reemplazar los archivos que ya existen:
+     pubspec.yaml
+     lib/main.dart
+     android/app/src/main/AndroidManifest.xml
+     android/app/src/main/kotlin/com/example/gtaradio/MainActivity.kt
+
+   Si en el paso 1 usaste otra organizacion, abre MainActivity.kt y cambia la
+   primera linea (package ...) para que coincida con la ruta de la carpeta.
+
+3) Borrar el test de plantilla (ya no encaja con la app)
+   Elimina el archivo test/widget_test.dart
+
+4) Descargar dependencias
+   Terminal de Android Studio:   flutter pub get
+   Si da error de versiones, ejecuta:
+     flutter pub add just_audio just_audio_background path_provider file_picker:^8.3.7
+
+5) Ejecutar
+   Conecta el movil por USB (depuracion USB activada), elige el dispositivo
+   arriba y pulsa Run (Shift+F10).
+
+6) APK instalable
+   flutter build apk --release
+   -> build/app/outputs/flutter-apk/app-release.apk

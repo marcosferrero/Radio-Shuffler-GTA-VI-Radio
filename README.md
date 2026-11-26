@@ -1,4 +1,4 @@
-# radiogta
+# RADIO SHUFFLER
 
 A simple radio shuffler made for a variety of things, but specially for GTA VI radios. Its my first project so Ive used Claude and Gemini to guide me throught the process. Ill be improving it little by little from now on and any bugs you find remember to report them so I can keep on improving.
 

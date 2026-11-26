@@ -27,6 +27,8 @@ Future<void> main() async {
     ),
   );
   await radio.iniciarSesion();
+  await radio.cargarHistorial();
+  await cargarIdiomaApp();
   runApp(const RadioApp());
 }
 
@@ -39,6 +41,220 @@ Future<Directory> carpetaRadios() async {
   final dir = Directory('${base.path}/radios');
   await dir.create(recursive: true);
   return dir;
+}
+
+final idiomaApp = ValueNotifier<String>('es');
+
+const Map<String, Map<String, String>> _textosApp = {
+  'es': {
+    'app_title': 'Radio GTA',
+    'radio_title': 'Radio',
+    'language_tooltip': 'Idioma / Language',
+    'lang_es': 'Español',
+    'lang_en': 'Inglés',
+    'import_package_tooltip': 'Importar radio (.gtaradio)',
+    'add_radio': 'Añadir radio',
+    'no_stations': 'Todavía no hay emisoras.\nPulsa «Añadir radio» para importar una.',
+    'segments_count': '{n} segmentos',
+    'edit_tracks': 'Editar pistas',
+    'export_radio': 'Exportar radio',
+    'delete_radio': 'Borrar radio',
+    'delete_radio_title': '¿Borrar "{nombre}"?',
+    'delete_radio_body': 'Se elimina el archivo de la app. El original no se toca.',
+    'cancel': 'Cancelar',
+    'delete': 'Borrar',
+    'preparing_radio': 'Preparando «{nombre}»…',
+    'importing_radio': 'Importando radio…',
+    'radio_imported': 'Radio importada.',
+    'error_prefix': 'Error: {err}',
+    'missing_import_fields': 'Falta el nombre, el archivo o la lista de pistas.',
+    'cannot_read_duration': 'No se pudo leer la duración del archivo.',
+    'no_timestamps': 'No he encontrado marcas de tiempo en la lista.',
+    'station_name_label': 'Nombre de la emisora',
+    'pick_media': 'Elegir vídeo o audio',
+    'pick_logo': 'Elegir logotipo (opcional)',
+    'change_logo': 'Cambiar logotipo',
+    'remove_logo': 'Quitar logotipo',
+    'remove': 'Quitar',
+    'tracklist_label': 'Lista de pistas',
+    'tracklist_hint': '0:00 Artista - Canción\n3:41 [loc] Locutor\n4:20 Artista - Canción\n8:02 [ad] Anuncio',
+    'tracklist_helper': 'Una por línea, con su marca de tiempo. [loc] = locutor, [ad] = anuncio.',
+    'import_btn': 'Importar',
+    'working_long_file': 'Trabajando… con vídeos largos puede tardar varios minutos.',
+    'type_cancion': 'Canción',
+    'type_locutor': 'Locutor',
+    'type_anuncio': 'Anuncio',
+    'cannot_play_clip': 'No se pudo reproducir ese tramo.',
+    'track_deleted': 'Pista borrada',
+    'undo': 'Deshacer',
+    'set_station_name': 'Pon un nombre a la emisora.',
+    'need_one_track': 'Tiene que quedar al menos una pista.',
+    'cannot_save': 'No se pudo guardar: {err}',
+    'discard_changes_title': '¿Descartar los cambios?',
+    'keep_editing': 'Seguir editando',
+    'discard': 'Descartar',
+    'save_tooltip': 'Guardar',
+    'add_track': 'Añadir pista',
+    'tracks_count': '{n} pistas',
+    'tracks_and_duration': '{n} pistas · archivo de {dur}',
+    'new_track': 'Nueva pista',
+    'edit_track': 'Editar pista',
+    'title_label': 'Título',
+    'invalid_start': 'El inicio no es válido (usa 3:41 o 1:02:10).',
+    'invalid_end': 'El final no es válido (usa 3:41 o 1:02:10).',
+    'set_title': 'Pon un título.',
+    'invalid_times': 'Los tiempos no son válidos (usa 3:41 o 1:02:10).',
+    'end_before_start': 'El final tiene que ser posterior al inicio.',
+    'end_exceeds_duration': 'El final supera la duración del archivo ({dur}).',
+    'start_label': 'Inicio',
+    'end_label': 'Final',
+    'listen_start': 'Oír inicio',
+    'listen_end': 'Oír final',
+    'accept': 'Aceptar',
+    'image_format_msg': 'Elige una imagen PNG, JPG o WEBP.',
+    'close_tooltip': 'Cerrar',
+    'pause_tooltip': 'Pausar',
+    'resume_tooltip': 'Reanudar',
+    'stop_radio': 'Detener radio',
+    'up_next': 'A continuación',
+    'recent_tracks': 'Últimas pistas',
+    'clear_btn': 'Borrar',
+    'live_badge': 'En directo',
+    'paused_badge': 'En pausa',
+    'live_upper': 'EN DIRECTO',
+  },
+  'en': {
+    'app_title': 'Radio GTA',
+    'radio_title': 'Radio',
+    'language_tooltip': 'Language / Idioma',
+    'lang_es': 'Spanish',
+    'lang_en': 'English',
+    'import_package_tooltip': 'Import radio (.gtaradio)',
+    'add_radio': 'Add radio',
+    'no_stations': 'No stations yet.\nTap "Add radio" to import one.',
+    'segments_count': '{n} segments',
+    'edit_tracks': 'Edit tracks',
+    'export_radio': 'Export radio',
+    'delete_radio': 'Delete radio',
+    'delete_radio_title': 'Delete "{nombre}"?',
+    'delete_radio_body': 'The app file is removed. The original file is untouched.',
+    'cancel': 'Cancel',
+    'delete': 'Delete',
+    'preparing_radio': 'Preparing "{nombre}"…',
+    'importing_radio': 'Importing radio…',
+    'radio_imported': 'Radio imported.',
+    'error_prefix': 'Error: {err}',
+    'missing_import_fields': 'Missing station name, media file, or tracklist.',
+    'cannot_read_duration': 'Could not read the media file duration.',
+    'no_timestamps': 'No timestamps found in the tracklist.',
+    'station_name_label': 'Station name',
+    'pick_media': 'Choose video or audio',
+    'pick_logo': 'Choose logo (optional)',
+    'change_logo': 'Change logo',
+    'remove_logo': 'Remove logo',
+    'remove': 'Remove',
+    'tracklist_label': 'Tracklist',
+    'tracklist_hint': '0:00 Artist - Song\n3:41 [loc] Host\n4:20 Artist - Song\n8:02 [ad] Ad',
+    'tracklist_helper': 'One per line with a timestamp. [loc] = host, [ad] = ad.',
+    'import_btn': 'Import',
+    'working_long_file': 'Working… long videos can take several minutes.',
+    'type_cancion': 'Song',
+    'type_locutor': 'Host',
+    'type_anuncio': 'Ad',
+    'cannot_play_clip': 'Could not play that segment.',
+    'track_deleted': 'Track deleted',
+    'undo': 'Undo',
+    'set_station_name': 'Enter a station name.',
+    'need_one_track': 'At least one track must remain.',
+    'cannot_save': 'Could not save: {err}',
+    'discard_changes_title': 'Discard changes?',
+    'keep_editing': 'Keep editing',
+    'discard': 'Discard',
+    'save_tooltip': 'Save',
+    'add_track': 'Add track',
+    'tracks_count': '{n} tracks',
+    'tracks_and_duration': '{n} tracks · {dur} file',
+    'new_track': 'New track',
+    'edit_track': 'Edit track',
+    'title_label': 'Title',
+    'invalid_start': 'Start time is invalid (use 3:41 or 1:02:10).',
+    'invalid_end': 'End time is invalid (use 3:41 or 1:02:10).',
+    'set_title': 'Enter a title.',
+    'invalid_times': 'Times are invalid (use 3:41 or 1:02:10).',
+    'end_before_start': 'End time must be after start time.',
+    'end_exceeds_duration': 'End time exceeds file duration ({dur}).',
+    'start_label': 'Start',
+    'end_label': 'End',
+    'listen_start': 'Play start',
+    'listen_end': 'Play end',
+    'accept': 'OK',
+    'image_format_msg': 'Choose a PNG, JPG, or WEBP image.',
+    'close_tooltip': 'Close',
+    'pause_tooltip': 'Pause',
+    'resume_tooltip': 'Resume',
+    'stop_radio': 'Stop radio',
+    'up_next': 'Up next',
+    'recent_tracks': 'Recent tracks',
+    'clear_btn': 'Clear',
+    'live_badge': 'Live',
+    'paused_badge': 'Paused',
+    'live_upper': 'LIVE',
+  },
+};
+
+String _t(String key, [Map<String, String> params = const {}]) {
+  final mapa = _textosApp[idiomaApp.value] ?? _textosApp['es']!;
+  var s = mapa[key] ?? _textosApp['es']![key] ?? key;
+  for (final e in params.entries) {
+    s = s.replaceAll('{${e.key}}', e.value);
+  }
+  return s;
+}
+
+String _etiquetaTipo(String tipo) {
+  switch (tipo) {
+    case 'locutor':
+      return _t('type_locutor');
+    case 'anuncio':
+      return _t('type_anuncio');
+    case 'cancion':
+    default:
+      return _t('type_cancion');
+  }
+}
+
+Future<File> _archivoPreferencias() async {
+  final base = await getApplicationDocumentsDirectory();
+  return File('${base.path}/preferencias_radio.json');
+}
+
+Future<void> cargarIdiomaApp() async {
+  try {
+    final f = await _archivoPreferencias();
+    if (!await f.exists()) return;
+    final data = jsonDecode(await f.readAsString());
+    if (data is Map<String, dynamic>) {
+      final lang = data['idioma'];
+      if (lang == 'es' || lang == 'en') {
+        idiomaApp.value = lang;
+      }
+    }
+  } catch (_) {}
+}
+
+Future<void> cambiarIdiomaApp(String codigo) async {
+  if (codigo != 'es' && codigo != 'en') return;
+  idiomaApp.value = codigo;
+  try {
+    final f = await _archivoPreferencias();
+    Map<String, dynamic> data = {};
+    if (await f.exists()) {
+      final decoded = jsonDecode(await f.readAsString());
+      if (decoded is Map<String, dynamic>) data = decoded;
+    }
+    data['idioma'] = codigo;
+    await f.writeAsString(jsonEncode(data));
+  } catch (_) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +306,38 @@ class Emisora {
       logo: rutaLogo != null && File(rutaLogo).existsSync() ? rutaLogo : null,
     );
   }
+}
+
+class EntradaHistorial {
+  final String emisora;
+  final String carpeta;
+  final String titulo;
+  final String tipo;
+  final int horaMs;
+
+  const EntradaHistorial({
+    required this.emisora,
+    required this.carpeta,
+    required this.titulo,
+    required this.tipo,
+    required this.horaMs,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'emisora': emisora,
+    'carpeta': carpeta,
+    'titulo': titulo,
+    'tipo': tipo,
+    'horaMs': horaMs,
+  };
+
+  factory EntradaHistorial.desdeJson(Map<String, dynamic> j) => EntradaHistorial(
+    emisora: j['emisora'] ?? '',
+    carpeta: j['carpeta'] ?? '',
+    titulo: j['titulo'] ?? 'Sin título',
+    tipo: j['tipo'] ?? 'cancion',
+    horaMs: (j['horaMs'] as num?)?.toInt() ?? 0,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +520,9 @@ class Reproductor extends BaseAudioHandler {
   final actual = ValueNotifier<Segmento?>(null);
   final emisoraActual = ValueNotifier<Emisora?>(null);
   final sonando = ValueNotifier<bool>(false);
+  final historial = ValueNotifier<List<EntradaHistorial>>(const []);
+
+  static const _maxHistorial = 50;
 
   /// Si se pausa más de este tiempo, al reanudar vuelve al punto "en directo".
   static const _maxPausa = Duration(seconds: 5);
@@ -359,6 +610,67 @@ class Reproductor extends BaseAudioHandler {
   Future<void> olvidar(String carpeta) async {
     _programaciones.remove(carpeta);
     if (_emisora?.carpeta == carpeta) await detener();
+  }
+
+  Future<File> _archivoHistorial() async {
+    final base = await getApplicationDocumentsDirectory();
+    return File('${base.path}/historial_radio.json');
+  }
+
+  Future<void> cargarHistorial() async {
+    try {
+      final f = await _archivoHistorial();
+      if (!await f.exists()) return;
+      final datos = jsonDecode(await f.readAsString());
+      if (datos is! List) return;
+      historial.value = datos
+          .whereType<Map<String, dynamic>>()
+          .map(EntradaHistorial.desdeJson)
+          .take(_maxHistorial)
+          .toList();
+    } catch (_) {
+      // Si el fichero está corrupto, arrancamos con historial vacío.
+    }
+  }
+
+  Future<void> _guardarHistorial() async {
+    try {
+      final f = await _archivoHistorial();
+      await f.writeAsString(jsonEncode([
+        for (final h in historial.value) h.toJson(),
+      ]));
+    } catch (_) {}
+  }
+
+  Future<void> limpiarHistorial([String? carpeta]) async {
+    if (carpeta == null) {
+      historial.value = const [];
+    } else {
+      historial.value =
+          historial.value.where((h) => h.carpeta != carpeta).toList();
+    }
+    await _guardarHistorial();
+  }
+
+  void _anotarHistorial(Segmento s) {
+    final e = _emisora;
+    if (e == null) return;
+    final lista = historial.value;
+    if (lista.isNotEmpty &&
+        lista.first.carpeta == e.carpeta &&
+        lista.first.titulo == s.titulo &&
+        lista.first.tipo == s.tipo) {
+      return;
+    }
+    final nueva = EntradaHistorial(
+      emisora: e.nombre,
+      carpeta: e.carpeta,
+      titulo: s.titulo,
+      tipo: s.tipo,
+      horaMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    historial.value = [nueva, ...lista].take(_maxHistorial).toList();
+    unawaited(_guardarHistorial());
   }
 
   /// Duración total de un archivo (con un reproductor temporal).
@@ -529,6 +841,7 @@ class Reproductor extends BaseAudioHandler {
 
   void _publicar(Segmento s) {
     actual.value = s;
+    _anotarHistorial(s);
     final logo = _emisora?.logo;
     mediaItem.add(MediaItem(
       id: '${s.archivo}#${s.inicio.inMilliseconds}',
@@ -558,15 +871,20 @@ class RadioApp extends StatelessWidget {
   const RadioApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Radio GTA',
-    debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      colorSchemeSeed: Colors.pink,
-      brightness: Brightness.dark,
-      useMaterial3: true,
+  Widget build(BuildContext context) => ValueListenableBuilder<String>(
+    valueListenable: idiomaApp,
+    builder: (_, lang, __) => MaterialApp(
+      key: ValueKey(lang),
+      locale: Locale(lang),
+      title: _t('app_title'),
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: Colors.pink,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
+      home: const PantallaEmisoras(),
     ),
-    home: const PantallaEmisoras(),
   );
 }
 
@@ -657,7 +975,7 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
 
   Future<void> _exportar(Emisora e) async {
     await _conEspera(
-      'Preparando «${e.nombre}»…',
+      _t('preparing_radio', {'nombre': e.nombre}),
           () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
     );
   }
@@ -670,7 +988,7 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
     if (f == null || ruta == null || !mounted) return;
     final base = await carpetaRadios();
     final ok = await _conEspera(
-      'Importando radio…',
+      _t('importing_radio'),
           () async {
         await importarRadio(paquete: File(ruta), base: base);
         // La copia de la caché del selector ya no hace falta.
@@ -683,7 +1001,7 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
       await _cargar();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Radio importada.')),
+          SnackBar(content: Text(_t('radio_imported'))),
         );
       }
     }
@@ -693,11 +1011,11 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('¿Borrar "${e.nombre}"?'),
-        content: const Text('Se elimina el archivo de la app. El original no se toca.'),
+        title: Text(_t('delete_radio_title', {'nombre': e.nombre})),
+        content: Text(_t('delete_radio_body')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Borrar')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('delete'))),
         ],
       ),
     );
@@ -711,10 +1029,27 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Radio'),
+        title: Text(_t('radio_title')),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: _t('language_tooltip'),
+            icon: const Icon(Icons.language),
+            onSelected: cambiarIdiomaApp,
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem(
+                value: 'es',
+                checked: idiomaApp.value == 'es',
+                child: Text(_t('lang_es')),
+              ),
+              CheckedPopupMenuItem(
+                value: 'en',
+                checked: idiomaApp.value == 'en',
+                child: Text(_t('lang_en')),
+              ),
+            ],
+          ),
           IconButton(
-            tooltip: 'Importar radio (.gtaradio)',
+            tooltip: _t('import_package_tooltip'),
             icon: const Icon(Icons.file_download_outlined),
             onPressed: _importarPaquete,
           ),
@@ -723,16 +1058,16 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _anadir,
         icon: const Icon(Icons.add),
-        label: const Text('Añadir radio'),
+        label: Text(_t('add_radio')),
       ),
       body: cargando
           ? const Center(child: CircularProgressIndicator())
           : emisoras.isEmpty
-          ? const Padding(
-        padding: EdgeInsets.all(24),
+          ? Padding(
+        padding: const EdgeInsets.all(24),
         child: Center(
           child: Text(
-            'Todavía no hay emisoras.\nPulsa «Añadir radio» para importar una.',
+            _t('no_stations'),
             textAlign: TextAlign.center,
           ),
         ),
@@ -745,7 +1080,7 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
           return ListTile(
             leading: _LogoMini(ruta: e.logo, nombre: e.nombre, tam: 48),
             title: Text(e.nombre),
-            subtitle: Text('${e.segmentos.length} segmentos'),
+            subtitle: Text(_t('segments_count', {'n': '${e.segmentos.length}'})),
             onTap: () => repro.sintonizar(e),
             trailing: PopupMenuButton<String>(
               onSelected: (v) {
@@ -753,10 +1088,10 @@ class _PantallaEmisorasState extends State<PantallaEmisoras> {
                 if (v == 'exportar') _exportar(e);
                 if (v == 'borrar') _borrar(e);
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'editar', child: Text('Editar pistas')),
-                PopupMenuItem(value: 'exportar', child: Text('Exportar radio')),
-                PopupMenuItem(value: 'borrar', child: Text('Borrar radio')),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'editar', child: Text(_t('edit_tracks'))),
+                PopupMenuItem(value: 'exportar', child: Text(_t('export_radio'))),
+                PopupMenuItem(value: 'borrar', child: Text(_t('delete_radio'))),
               ],
             ),
           );
@@ -824,7 +1159,7 @@ class _PantallaImportarState extends State<PantallaImportar> {
   Future<void> _importar() async {
     final nombre = _nombre.text.trim();
     if (nombre.isEmpty || _archivo == null || _pistas.text.trim().isEmpty) {
-      _aviso('Falta el nombre, el archivo o la lista de pistas.');
+      _aviso(_t('missing_import_fields'));
       return;
     }
     setState(() => _trabajando = true);
@@ -846,10 +1181,10 @@ class _PantallaImportarState extends State<PantallaImportar> {
       }
 
       final dur = await widget.repro.medirDuracion(destino);
-      if (dur == null) throw 'No se pudo leer la duración del archivo.';
+      if (dur == null) throw _t('cannot_read_duration');
 
       final segs = segmentosDesdeLista(_pistas.text, dur.inMilliseconds / 1000);
-      if (segs.isEmpty) throw 'No he encontrado marcas de tiempo en la lista.';
+      if (segs.isEmpty) throw _t('no_timestamps');
 
       final nombreLogo =
       _logo == null ? null : await guardarLogo(_logo!, carpeta.path);
@@ -864,7 +1199,7 @@ class _PantallaImportarState extends State<PantallaImportar> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (await carpeta.exists()) await carpeta.delete(recursive: true);
-      if (mounted) _aviso('Error: $e');
+      if (mounted) _aviso(_t('error_prefix', {'err': '$e'}));
     } finally {
       if (mounted) setState(() => _trabajando = false);
     }
@@ -873,7 +1208,7 @@ class _PantallaImportarState extends State<PantallaImportar> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Añadir radio')),
+      appBar: AppBar(title: Text(_t('add_radio'))),
       body: AbsorbPointer(
         absorbing: _trabajando,
         child: ListView(
@@ -881,16 +1216,16 @@ class _PantallaImportarState extends State<PantallaImportar> {
           children: [
             TextField(
               controller: _nombre,
-              decoration: const InputDecoration(
-                labelText: 'Nombre de la emisora',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: _t('station_name_label'),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: _elegirArchivo,
               icon: const Icon(Icons.video_file),
-              label: Text(_archivo == null ? 'Elegir vídeo o audio' : _nombreArchivo),
+              label: Text(_archivo == null ? _t('pick_media') : _nombreArchivo),
             ),
             const SizedBox(height: 16),
             Row(
@@ -904,13 +1239,13 @@ class _PantallaImportarState extends State<PantallaImportar> {
                     onPressed: _elegirLogo,
                     icon: const Icon(Icons.image),
                     label: Text(_logo == null
-                        ? 'Elegir logotipo (opcional)'
-                        : 'Cambiar logotipo'),
+                        ? _t('pick_logo')
+                        : _t('change_logo')),
                   ),
                 ),
                 if (_logo != null)
                   IconButton(
-                    tooltip: 'Quitar logotipo',
+                    tooltip: _t('remove_logo'),
                     icon: const Icon(Icons.close),
                     onPressed: () => setState(() => _logo = null),
                   ),
@@ -921,25 +1256,25 @@ class _PantallaImportarState extends State<PantallaImportar> {
               controller: _pistas,
               minLines: 8,
               maxLines: 14,
-              decoration: const InputDecoration(
-                labelText: 'Lista de pistas',
-                hintText: '0:00 Artista - Canción\n3:41 [loc] Locutor\n4:20 Artista - Canción\n8:02 [ad] Anuncio',
-                helperText: 'Una por línea, con su marca de tiempo. [loc] = locutor, [ad] = anuncio.',
+              decoration: InputDecoration(
+                labelText: _t('tracklist_label'),
+                hintText: _t('tracklist_hint'),
+                helperText: _t('tracklist_helper'),
                 helperMaxLines: 2,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: _importar,
-              child: const Text('Importar'),
+              child: Text(_t('import_btn')),
             ),
             if (_trabajando) ...[
               const SizedBox(height: 24),
               const Center(child: CircularProgressIndicator()),
               const SizedBox(height: 12),
-              const Text(
-                'Trabajando… con vídeos largos puede tardar varios minutos.',
+              Text(
+                _t('working_long_file'),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1051,7 +1386,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
       );
       _previa.play();
     } catch (_) {
-      if (mounted) _aviso('No se pudo reproducir ese tramo.');
+      if (mounted) _aviso(_t('cannot_play_clip'));
     }
   }
 
@@ -1098,9 +1433,9 @@ class _PantallaEditarState extends State<PantallaEditar> {
     final m = ScaffoldMessenger.of(context);
     m.clearSnackBars();
     m.showSnackBar(SnackBar(
-      content: const Text('Pista borrada'),
+      content: Text(_t('track_deleted')),
       action: SnackBarAction(
-        label: 'Deshacer',
+        label: _t('undo'),
         onPressed: () => setState(() {
           _segs.add(borrada);
           _ordenar();
@@ -1112,11 +1447,11 @@ class _PantallaEditarState extends State<PantallaEditar> {
   Future<void> _guardar() async {
     final nombre = _nombre.text.trim();
     if (nombre.isEmpty) {
-      _aviso('Pon un nombre a la emisora.');
+      _aviso(_t('set_station_name'));
       return;
     }
     if (_segs.isEmpty) {
-      _aviso('Tiene que quedar al menos una pista.');
+      _aviso(_t('need_one_track'));
       return;
     }
     try {
@@ -1151,7 +1486,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
       await radio.olvidar(widget.emisora.carpeta);
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) _aviso('No se pudo guardar: $e');
+      if (mounted) _aviso(_t('cannot_save', {'err': '$e'}));
     }
   }
 
@@ -1164,15 +1499,15 @@ class _PantallaEditarState extends State<PantallaEditar> {
         final salir = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('¿Descartar los cambios?'),
+            title: Text(_t('discard_changes_title')),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Seguir editando'),
+                child: Text(_t('keep_editing')),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Descartar'),
+                child: Text(_t('discard')),
               ),
             ],
           ),
@@ -1181,11 +1516,11 @@ class _PantallaEditarState extends State<PantallaEditar> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Editar pistas'),
+          title: Text(_t('edit_tracks')),
           actions: [
             IconButton(
               icon: const Icon(Icons.check),
-              tooltip: 'Guardar',
+              tooltip: _t('save_tooltip'),
               onPressed: _cambios ? _guardar : null,
             ),
           ],
@@ -1193,7 +1528,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _anadir,
           icon: const Icon(Icons.add),
-          label: const Text('Añadir pista'),
+          label: Text(_t('add_track')),
         ),
         body: ListView.builder(
           padding: const EdgeInsets.only(bottom: 88),
@@ -1221,13 +1556,13 @@ class _PantallaEditarState extends State<PantallaEditar> {
                                 onPressed: _cambiarLogo,
                                 icon: const Icon(Icons.image),
                                 label: Text(_logoVista == null
-                                    ? 'Añadir logotipo'
-                                    : 'Cambiar logotipo'),
+                                    ? _t('pick_logo').replaceAll(' (opcional)', '')
+                                    : _t('change_logo')),
                               ),
                               if (_logoVista != null)
                                 TextButton(
                                   onPressed: _quitarLogo,
-                                  child: const Text('Quitar'),
+                                  child: Text(_t('remove')),
                                 ),
                             ],
                           ),
@@ -1240,16 +1575,19 @@ class _PantallaEditarState extends State<PantallaEditar> {
                       onChanged: (_) {
                         if (!_cambios) setState(() => _cambios = true);
                       },
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de la emisora',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: _t('station_name_label'),
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       _total == null
-                          ? '${_segs.length} pistas'
-                          : '${_segs.length} pistas · archivo de ${_fmt(_total!)}',
+                          ? _t('tracks_count', {'n': '${_segs.length}'})
+                          : _t('tracks_and_duration', {
+                        'n': '${_segs.length}',
+                        'dur': _fmt(_total!),
+                      }),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -1264,7 +1602,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
               subtitle: Text('${_fmt(s.inicio)} – ${_fmt(s.fin)} · ${_fmt(s.fin - s.inicio)}'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete_outline),
-                tooltip: 'Borrar pista',
+                tooltip: _t('delete'),
                 onPressed: () => _borrarPista(idx),
               ),
               onTap: () => _editarPista(idx),
@@ -1316,7 +1654,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
   Future<void> _oirInicio() async {
     final i = _parseTiempo(_ini.text);
     if (i == null) {
-      setState(() => _error = 'El inicio no es válido (usa 3:41 o 1:02:10).');
+      setState(() => _error = _t('invalid_start'));
       return;
     }
     final f = _parseTiempo(_fin.text);
@@ -1329,7 +1667,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
   Future<void> _oirFinal() async {
     final f = _parseTiempo(_fin.text);
     if (f == null) {
-      setState(() => _error = 'El final no es válido (usa 3:41 o 1:02:10).');
+      setState(() => _error = _t('invalid_end'));
       return;
     }
     final i = _parseTiempo(_ini.text) ?? Duration.zero;
@@ -1349,13 +1687,13 @@ class _DialogoPistaState extends State<_DialogoPista> {
     final t = _titulo.text.trim();
     String? err;
     if (t.isEmpty) {
-      err = 'Pon un título.';
+      err = _t('set_title');
     } else if (i == null || f == null) {
-      err = 'Los tiempos no son válidos (usa 3:41 o 1:02:10).';
+      err = _t('invalid_times');
     } else if (f <= i) {
-      err = 'El final tiene que ser posterior al inicio.';
+      err = _t('end_before_start');
     } else if (widget.total != null && f > widget.total!) {
-      err = 'El final supera la duración del archivo (${_fmt(widget.total!)}).';
+      err = _t('end_exceeds_duration', {'dur': _fmt(widget.total!)});
     }
     if (err != null) {
       setState(() => _error = err);
@@ -1371,7 +1709,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.inicial == null ? 'Nueva pista' : 'Editar pista'),
+      title: Text(widget.inicial == null ? _t('new_track') : _t('edit_track')),
       scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1379,7 +1717,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
         children: [
           TextField(
             controller: _titulo,
-            decoration: const InputDecoration(labelText: 'Título'),
+            decoration: InputDecoration(labelText: _t('title_label')),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -1387,7 +1725,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
             children: [
               for (final e in _nombresTipo.entries)
                 ChoiceChip(
-                  label: Text(e.value),
+                  label: Text(_etiquetaTipo(e.key)),
                   selected: _tipo == e.key,
                   onSelected: (_) => setState(() => _tipo = e.key),
                 ),
@@ -1400,7 +1738,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
                 child: TextField(
                   controller: _ini,
                   keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(labelText: 'Inicio', hintText: '3:41'),
+                  decoration: InputDecoration(labelText: _t('start_label'), hintText: '3:41'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1408,7 +1746,7 @@ class _DialogoPistaState extends State<_DialogoPista> {
                 child: TextField(
                   controller: _fin,
                   keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(labelText: 'Final', hintText: '7:05'),
+                  decoration: InputDecoration(labelText: _t('end_label'), hintText: '7:05'),
                 ),
               ),
             ],
@@ -1420,12 +1758,12 @@ class _DialogoPistaState extends State<_DialogoPista> {
               TextButton.icon(
                 onPressed: _oirInicio,
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Oír inicio'),
+                label: Text(_t('listen_start')),
               ),
               TextButton.icon(
                 onPressed: _oirFinal,
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('Oír final'),
+                label: Text(_t('listen_end')),
               ),
             ],
           ),
@@ -1440,8 +1778,8 @@ class _DialogoPistaState extends State<_DialogoPista> {
         ],
       ),
       actions: [
-        TextButton(onPressed: _cancelar, child: const Text('Cancelar')),
-        FilledButton(onPressed: _aceptar, child: const Text('Aceptar')),
+        TextButton(onPressed: _cancelar, child: Text(_t('cancel'))),
+        FilledButton(onPressed: _aceptar, child: Text(_t('accept'))),
       ],
     );
   }
@@ -1514,7 +1852,7 @@ Future<File?> elegirImagen(BuildContext context) async {
   if (!_extensionesImagen.contains(ext)) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Elige una imagen PNG, JPG o WEBP.')),
+        SnackBar(content: Text(_t('image_format_msg'))),
       );
     }
     return null;
@@ -1608,7 +1946,7 @@ class PantallaReproduccion extends StatelessWidget {
             surfaceTintColor: Colors.transparent,
             leading: IconButton(
               icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-              tooltip: 'Cerrar',
+              tooltip: _t('close_tooltip'),
               onPressed: () => Navigator.of(context).pop(),
             ),
             centerTitle: true,
@@ -1645,7 +1983,7 @@ class PantallaReproduccion extends StatelessWidget {
                         Icon(_iconoTipo(seg.tipo), size: 18, color: color),
                         const SizedBox(width: 6),
                         Text(
-                          _nombresTipo[seg.tipo] ?? '',
+                          _etiquetaTipo(seg.tipo),
                           style: Theme.of(context).textTheme.labelLarge,
                         ),
                       ],
@@ -1671,7 +2009,7 @@ class PantallaReproduccion extends StatelessWidget {
                         backgroundColor: color,
                         foregroundColor: _sobre(color),
                       ),
-                      tooltip: sonando ? 'Pausar' : 'Reanudar',
+                      tooltip: sonando ? _t('pause_tooltip') : _t('resume_tooltip'),
                       icon: Icon(sonando ? Icons.pause : Icons.play_arrow),
                       onPressed: sonando ? repro.pause : repro.play,
                     ),
@@ -1682,11 +2020,11 @@ class PantallaReproduccion extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: repro.detener,
                     icon: const Icon(Icons.stop),
-                    label: const Text('Detener radio'),
+                    label: Text(_t('stop_radio')),
                   ),
                 ),
                 const SizedBox(height: 24),
-                Text('A continuación', style: Theme.of(context).textTheme.titleMedium),
+                Text(_t('up_next'), style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 4),
                 for (final p in proximas)
                   ListTile(
@@ -1701,6 +2039,56 @@ class PantallaReproduccion extends StatelessWidget {
                     title: Text(p.seg.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
                     trailing: Icon(_iconoTipo(p.seg.tipo), size: 20),
                   ),
+                ValueListenableBuilder<List<EntradaHistorial>>(
+                  valueListenable: repro.historial,
+                  builder: (context, items, _) {
+                    final carpetaActual = emisora?.carpeta;
+                    final recientes = items
+                        .where((h) => carpetaActual == null || h.carpeta == carpetaActual)
+                        .where((h) => !(h.titulo == seg.titulo && h.tipo == seg.tipo))
+                        .take(8)
+                        .toList();
+                    if (recientes.isEmpty) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _t('recent_tracks'),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            TextButton(
+                              onPressed: () => repro.limpiarHistorial(carpetaActual),
+                              child: Text(_t('clear_btn')),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        for (final h in recientes)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Text(
+                              _hora(h.horaMs),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                                fontFeatures: const [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                            title: Text(
+                              h.titulo,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Icon(_iconoTipo(h.tipo), size: 20),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -1792,7 +2180,7 @@ class _InsigniaDirecto extends StatelessWidget {
             Icon(Icons.circle, size: 10, color: c),
             const SizedBox(width: 6),
             Text(
-              sonando ? 'En directo' : 'En pausa',
+              sonando ? _t('live_badge') : _t('paused_badge'),
               style: Theme.of(context).textTheme.labelLarge?.copyWith(color: c),
             ),
           ],
@@ -1919,7 +2307,7 @@ class _BarraReproduccion extends StatelessWidget {
             onTap: () => abrirReproduccion(context),
             leading: Icon(_iconoTipo(seg.tipo)),
             title: Text(seg.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
-            subtitle: Text('${repro.emisoraActual.value?.nombre ?? ''} · EN DIRECTO'),
+            subtitle: Text('${repro.emisoraActual.value?.nombre ?? ''} · ${_t('live_upper')}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

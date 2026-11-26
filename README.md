@@ -1,7 +1,6 @@
 # radiogta
 
-A new Flutter project.
-
+My first project. Worked in collab with Claude.ai
 ## Getting Started
 
 This project is a starting point for a Flutter application.

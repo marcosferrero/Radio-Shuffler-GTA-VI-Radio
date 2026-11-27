@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
@@ -92,8 +93,9 @@ Future<void> exportarRadio({
 /// - Extrae a una carpeta temporal y solo al final la renombra: si algo falla,
 ///   no queda una emisora a medias.
 /// - Si ya existe una carpeta con ese nombre, crea "Nombre (2)", etc.
-///   El `nombre` de la emisora NO se toca: la parrilla en vivo se calcula a
-///   partir del nombre, así que dos personas con la misma radio oyen lo mismo.
+/// - Genera una semilla nueva para la radio importada: la programación en vivo
+///   depende de la semilla, así que no sonará igual que en el móvil de quien
+///   la exportó (ni que otra importación del mismo paquete).
 Future<String> importarRadio({
   required File paquete,
   required Directory base,
@@ -128,10 +130,11 @@ Future<String> importarRadio({
       throw ErrorPaquete('El paquete no incluye el audio «$archivo».');
     }
     // El logo es opcional: si falta, se quita la referencia.
-    if (logo != null && !extraidos.contains(logo)) {
-      datos.remove('logo');
-      await File('${tmp.path}/radio.json').writeAsString(jsonEncode(datos));
-    }
+    if (logo != null && !extraidos.contains(logo)) datos.remove('logo');
+
+    // Semilla nueva (la del paquete, si la trae, se descarta).
+    datos['semilla'] = Random.secure().nextInt(0x7FFFFFFF);
+    await File('${tmp.path}/radio.json').writeAsString(jsonEncode(datos));
 
     // 3) Carpeta final, sin pisar ninguna existente.
     final nombre = (datos['nombre'] as String).trim();

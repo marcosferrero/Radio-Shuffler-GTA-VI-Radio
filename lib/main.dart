@@ -377,13 +377,24 @@ class Emisora {
   final List<Segmento> segmentos;
   final String? logo; // ruta absoluta de la imagen, si la emisora tiene logotipo
 
+  /// Semilla de la programación en vivo. Las radios importadas de otra persona
+  /// reciben una nueva (ver importarRadio). Si es null (radios anteriores a este
+  /// campo), se usa el hash del nombre, así su programación no cambia.
+  final int? semilla;
+
   Emisora(
       this.nombre,
       this.carpeta,
       this.segmentos, {
         required this.archivo,
         this.logo,
+        this.semilla,
       });
+
+  static int? _leerSemilla(Map<String, dynamic> j) {
+    final v = j['semilla'];
+    return v is num ? v.toInt() : null;
+  }
 
   static List<Segmento> _parseSegmentos(Map<String, dynamic> j, String archivo) {
     Duration d(num s) => Duration(milliseconds: (s * 1000).round());
@@ -412,6 +423,7 @@ class Emisora {
       segs,
       archivo: archivo,
       logo: rutaLogo != null && File(rutaLogo).existsSync() ? rutaLogo : null,
+      semilla: _leerSemilla(j),
     );
   }
 
@@ -427,6 +439,7 @@ class Emisora {
       segs,
       archivo: archivo,
       logo: tieneLogo ? rutaLogo : null,
+      semilla: _leerSemilla(j),
     );
   }
 }
@@ -438,13 +451,31 @@ class EntradaHistorial {
   final String tipo;
   final int horaMs;
 
+  /// Instante en que empezó esa emisión en la parrilla (null en entradas antiguas).
+  /// Es el mismo valor para una misma emisión aunque se sintonice varias veces.
+  final int? inicioMs;
+
   const EntradaHistorial({
     required this.emisora,
     required this.carpeta,
     required this.titulo,
     required this.tipo,
     required this.horaMs,
+    this.inicioMs,
   });
+
+  /// Misma emisora, mismo tipo y mismo título (sin distinguir mayúsculas ni espacios).
+  String get clave =>
+      '$carpeta|$tipo|${titulo.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ')}';
+
+  /// ¿Es [o] la misma emisión que esta? Con inicioMs en ambas se compara exacto;
+  /// si alguna es antigua y no lo tiene, se considera la misma si ocurrió a menos de un minuto.
+  bool esMismaEmision(EntradaHistorial o) {
+    if (clave != o.clave) return false;
+    final a = inicioMs, b = o.inicioMs;
+    if (a != null && b != null) return a == b;
+    return (horaMs - o.horaMs).abs() < 60000;
+  }
 
   Map<String, dynamic> toJson() => {
     'emisora': emisora,
@@ -452,6 +483,7 @@ class EntradaHistorial {
     'titulo': titulo,
     'tipo': tipo,
     'horaMs': horaMs,
+    if (inicioMs != null) 'inicioMs': inicioMs,
   };
 
   factory EntradaHistorial.desdeJson(Map<String, dynamic> j) => EntradaHistorial(
@@ -460,6 +492,7 @@ class EntradaHistorial {
     titulo: j['titulo'] ?? 'Sin título',
     tipo: j['tipo'] ?? 'cancion',
     horaMs: (j['horaMs'] as num?)?.toInt() ?? 0,
+    inicioMs: (j['inicioMs'] as num?)?.toInt(),
   );
 }
 
@@ -562,7 +595,7 @@ class Programacion {
   final Map<int, List<Segmento>> _bloques = {};
   Posicion? _cache;
 
-  Programacion(this.emisora) : _semilla = _hash(emisora.nombre);
+  Programacion(this.emisora) : _semilla = emisora.semilla ?? _hash(emisora.nombre);
 
   int _inicioBloqueMs(int b) => _epocaMs + b * _bloqueMs;
 
@@ -830,7 +863,7 @@ class Reproductor extends BaseAudioHandler {
     await _cur.setVolume(1);
     _posCur = pos;
     _pausadoEn = null;
-    _publicar(pos.seg);
+    _publicar(pos.seg, pos.inicioMs);
     sonando.value = true;
     _estado();
     _cur.play(); // sin await: el Future termina cuando se pausa o acaba
@@ -870,10 +903,20 @@ class Reproductor extends BaseAudioHandler {
       if (!await f.exists()) return;
       final datos = jsonDecode(await f.readAsString());
       if (datos is! List) return;
-      historial.value = [
-        for (final item in datos)
-          if (item is JsonMap) EntradaHistorial.desdeJson(item),
-      ].take(_maxHistorial).toList();
+      // De más reciente a más antiguo. Se descartan las entradas que son la misma
+      // emisión que la anterior de su emisora (duplicados que ya estaban guardados);
+      // repeticiones reales de una canción (otra emisión) se respetan.
+      final ultimaPorEmisora = <String, EntradaHistorial>{};
+      final limpia = <EntradaHistorial>[];
+      for (final item in datos) {
+        if (item is! JsonMap) continue;
+        final h = EntradaHistorial.desdeJson(item);
+        final previa = ultimaPorEmisora[h.carpeta];
+        if (previa != null && previa.esMismaEmision(h)) continue;
+        ultimaPorEmisora[h.carpeta] = h;
+        limpia.add(h);
+      }
+      historial.value = limpia.take(_maxHistorial).toList();
     } catch (_) {
       // Si el fichero está corrupto, arrancamos con historial vacío.
     }
@@ -898,23 +941,26 @@ class Reproductor extends BaseAudioHandler {
     await _guardarHistorial();
   }
 
-  void _anotarHistorial(Segmento s) {
+  void _anotarHistorial(Segmento s, int inicioMs) {
     final e = _emisora;
     if (e == null) return;
     final lista = historial.value;
-    if (lista.isNotEmpty &&
-        lista.first.carpeta == e.carpeta &&
-        lista.first.titulo == s.titulo &&
-        lista.first.tipo == s.tipo) {
-      return;
-    }
     final nueva = EntradaHistorial(
       emisora: e.nombre,
       carpeta: e.carpeta,
       titulo: s.titulo,
       tipo: s.tipo,
       horaMs: DateTime.now().millisecondsSinceEpoch,
+      inicioMs: inicioMs,
     );
+    // El historial mezcla todas las emisoras: si has cambiado de radio y vuelves,
+    // lo último anotado de ESTA emisora no es lo primero de la lista. Si es la
+    // misma emisión (misma pista en el mismo momento de la parrilla), no se repite.
+    for (final h in lista) {
+      if (h.carpeta != e.carpeta) continue;
+      if (h.esMismaEmision(nueva)) return;
+      break; // la última de esta emisora es otra pista: se anota la nueva
+    }
     historial.value = [nueva, ...lista].take(_maxHistorial).toList();
     unawaited(_guardarHistorial());
   }
@@ -1065,8 +1111,8 @@ class Reproductor extends BaseAudioHandler {
     _cur.setVolume(1);
     vieja.pause();
     vieja.setVolume(0);
-    final s = _posCur?.seg;
-    if (s != null) _publicar(s);
+    final pc = _posCur;
+    if (pc != null) _publicar(pc.seg, pc.inicioMs);
     _prepararSiguiente();
   }
 
@@ -1096,9 +1142,9 @@ class Reproductor extends BaseAudioHandler {
     if (restante <= _fadeMs) _empezarFundido();
   }
 
-  void _publicar(Segmento s) {
+  void _publicar(Segmento s, int inicioMs) {
     actual.value = s;
-    _anotarHistorial(s);
+    _anotarHistorial(s, inicioMs);
     final logo = _emisora?.logo;
     mediaItem.add(MediaItem(
       id: '${s.archivo}#${s.inicio.inMilliseconds}',
@@ -1656,10 +1702,10 @@ class _CaratulaPreviewGTA extends StatelessWidget {
         borderRadius: BorderRadius.circular(3.5),
         child: logoRuta != null
             ? Image.file(
-                File(logoRuta!),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _CaratulaFallbackGTA(nombre: titulo),
-              )
+          File(logoRuta!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _CaratulaFallbackGTA(nombre: titulo),
+        )
             : _CaratulaFallbackGTA(nombre: titulo),
       ),
     );
@@ -2145,7 +2191,7 @@ class _PantallaEditarState extends State<PantallaEditar> {
   @override
   Widget build(BuildContext context) {
     final nombreVista =
-        _nombre.text.trim().isEmpty ? widget.emisora.nombre : _nombre.text.trim();
+    _nombre.text.trim().isEmpty ? widget.emisora.nombre : _nombre.text.trim();
     final color = _colorEmisora(nombreVista);
 
     return PopScope(
@@ -2334,11 +2380,11 @@ class _PantallaEditarState extends State<PantallaEditar> {
                         const SizedBox(height: 10),
                         Text(
                           (_total == null
-                                  ? _t('tracks_count', {'n': '${_segs.length}'})
-                                  : _t('tracks_and_duration', {
-                                      'n': '${_segs.length}',
-                                      'dur': _fmt(_total!),
-                                    }))
+                              ? _t('tracks_count', {'n': '${_segs.length}'})
+                              : _t('tracks_and_duration', {
+                            'n': '${_segs.length}',
+                            'dur': _fmt(_total!),
+                          }))
                               .toUpperCase(),
                           style: const TextStyle(
                             color: Colors.white60,
@@ -3212,7 +3258,7 @@ class _PantallaInicioGTAState extends State<PantallaInicioGTA> {
       await _ejecutarConEspera(
         context,
         _t('preparing_radio', {'nombre': e.nombre}),
-        () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
+            () => exportarRadio(carpeta: e.carpeta, nombre: e.nombre),
       );
     } else if (opcion == 'borrar') {
       await _borrarEmisora(e);
@@ -3352,360 +3398,360 @@ class _PantallaInicioGTAState extends State<PantallaInicioGTA> {
           );
         }
 
-    final e = _enfocada;
-    final color = _colorEmisora(e.nombre);
-    final total = _emisoras.length;
+        final e = _enfocada;
+        final color = _colorEmisora(e.nombre);
+        final total = _emisoras.length;
 
-    return ValueListenableBuilder<Segmento?>(
-      valueListenable: repro.actual,
-      builder: (context, segRepro, _) {
-        final apagada = segRepro == null;
-        final seg = repro.segmentoEnVivo(e);
-        final partes = seg == null ? null : _separarTitulo(seg);
+        return ValueListenableBuilder<Segmento?>(
+          valueListenable: repro.actual,
+          builder: (context, segRepro, _) {
+            final apagada = segRepro == null;
+            final seg = repro.segmentoEnVivo(e);
+            final partes = seg == null ? null : _separarTitulo(seg);
 
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Fondo atmosférico con el arte/color de la emisora desenfocado
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(0, -0.25),
-                    radius: 1.15,
-                    colors: [
-                      color.withValues(alpha: apagada ? 0.16 : 0.42),
-                      const Color(0xFF0B0B10),
-                      Colors.black,
-                    ],
+            return Scaffold(
+              backgroundColor: Colors.black,
+              body: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Fondo atmosférico con el arte/color de la emisora desenfocado
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 350),
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.25),
+                        radius: 1.15,
+                        colors: [
+                          color.withValues(alpha: apagada ? 0.16 : 0.42),
+                          const Color(0xFF0B0B10),
+                          Colors.black,
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              if (e.logo != null)
-                Opacity(
-                  opacity: apagada ? 0.08 : 0.22,
-                  child: Image.file(
-                    File(e.logo!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  if (e.logo != null)
+                    Opacity(
+                      opacity: apagada ? 0.08 : 0.22,
+                      child: Image.file(
+                        File(e.logo!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.72),
+                          Colors.black.withValues(alpha: 0.35),
+                          Colors.black.withValues(alpha: 0.88),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.72),
-                      Colors.black.withValues(alpha: 0.35),
-                      Colors.black.withValues(alpha: 0.88),
-                    ],
-                  ),
-                ),
-              ),
 
-              // Contenido vertical estilo HUD GTA VI
-              SafeArea(
-                child: LayoutBuilder(
-                  builder: (context, box) {
-                    final altoCarrusel =
+                  // Contenido vertical estilo HUD GTA VI
+                  SafeArea(
+                    child: LayoutBuilder(
+                      builder: (context, box) {
+                        final altoCarrusel =
                         (MediaQuery.sizeOf(context).width * 0.58).clamp(198.0, 260.0);
-                    final espacioCentro =
+                        final espacioCentro =
                         ((box.maxHeight - 92 - altoCarrusel - 300) * 0.65)
                             .clamp(10.0, 140.0);
-                    return Column(
-                      children: [
-                    // 1. Barra superior: Idioma | Selector vertical de modo | Botón TURN OFF
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 8, 12, 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const _BotonIdioma(color: Colors.white70, tam: 21),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: _SelectorVerticalGTA(
-                                  indice: _subModo,
-                                  acento: color,
-                                  etiquetas: [
-                                    _t('mode_live'),
-                                    _t('mode_queue'),
-                                    _t('mode_history'),
-                                  ],
-                                  onChanged: (m) => setState(() => _subModo = m),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () {
-                              if (apagada) {
-                                repro.sintonizar(e);
-                              } else {
-                                repro.detener();
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: Colors.white24),
-                              ),
+                        return Column(
+                          children: [
+                            // 1. Barra superior: Idioma | Selector vertical de modo | Botón TURN OFF
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(10, 8, 12, 4),
                               child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Icon(
-                                      apagada ? Icons.power_settings_new : Icons.close,
-                                      size: 14,
-                                      color: Colors.black,
+                                  const _BotonIdioma(color: Colors.white70, tam: 21),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        alignment: Alignment.centerLeft,
+                                        child: _SelectorVerticalGTA(
+                                          indice: _subModo,
+                                          acento: color,
+                                          etiquetas: [
+                                            _t('mode_live'),
+                                            _t('mode_queue'),
+                                            _t('mode_history'),
+                                          ],
+                                          onChanged: (m) => setState(() => _subModo = m),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    apagada ? _t('live_upper') : _t('turn_off'),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                      letterSpacing: 1.1,
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () {
+                                      if (apagada) {
+                                        repro.sintonizar(e);
+                                      } else {
+                                        repro.detener();
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: Colors.white24),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 20,
+                                            height: 20,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Icon(
+                                              apagada ? Icons.power_settings_new : Icons.close,
+                                              size: 14,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            apagada ? _t('live_upper') : _t('turn_off'),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 12,
+                                              letterSpacing: 1.1,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
 
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 260),
-                      curve: Curves.easeOutCubic,
-                      height: _subModo == 0 ? espacioCentro : 12.0,
-                    ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 260),
+                              curve: Curves.easeOutCubic,
+                              height: _subModo == 0 ? espacioCentro : 12.0,
+                            ),
 
-                    // 2. Carrusel horizontal de carátulas cuadradas con flechas < >
-                    SizedBox(
-                      height: altoCarrusel,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          PageView.builder(
-                            controller: _pageCtrl,
-                            itemCount: total,
-                            onPageChanged: (i) {
-                              setState(() => _indice = i);
-                              final sel = _emisoras[i];
-                              if (repro.emisoraActual.value?.carpeta != sel.carpeta) {
-                                repro.sintonizar(sel);
-                              }
-                            },
-                            itemBuilder: (_, i) {
-                              final item = _emisoras[i];
-                              final seleccionada = i == _indice && !apagada;
-                              final cItem = _colorEmisora(item.nombre);
-                              return GestureDetector(
-                                onTap: () => _seleccionarIndice(i),
-                                onLongPress: () => _abrirMenuEmisora(item),
-                                child: AnimatedScale(
-                                  scale: i == _indice ? 1.0 : 0.70,
-                                  duration: const Duration(milliseconds: 220),
-                                  curve: Curves.easeOutCubic,
-                                  child: AnimatedOpacity(
-                                    opacity: i == _indice ? 1.0 : 0.58,
-                                    duration: const Duration(milliseconds: 220),
-                                    child: Center(
-                                      child: AspectRatio(
-                                        aspectRatio: 1,
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: seleccionada
-                                                  ? Colors.white
-                                                  : Colors.white24,
-                                              width: seleccionada ? 3.5 : 1,
-                                            ),
-                                            boxShadow: seleccionada
-                                                ? [
-                                              BoxShadow(
-                                                color: cItem.withValues(alpha: 0.55),
-                                                blurRadius: 22,
-                                                spreadRadius: 2,
+                            // 2. Carrusel horizontal de carátulas cuadradas con flechas < >
+                            SizedBox(
+                              height: altoCarrusel,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  PageView.builder(
+                                    controller: _pageCtrl,
+                                    itemCount: total,
+                                    onPageChanged: (i) {
+                                      setState(() => _indice = i);
+                                      final sel = _emisoras[i];
+                                      if (repro.emisoraActual.value?.carpeta != sel.carpeta) {
+                                        repro.sintonizar(sel);
+                                      }
+                                    },
+                                    itemBuilder: (_, i) {
+                                      final item = _emisoras[i];
+                                      final seleccionada = i == _indice && !apagada;
+                                      final cItem = _colorEmisora(item.nombre);
+                                      return GestureDetector(
+                                        onTap: () => _seleccionarIndice(i),
+                                        onLongPress: () => _abrirMenuEmisora(item),
+                                        child: AnimatedScale(
+                                          scale: i == _indice ? 1.0 : 0.70,
+                                          duration: const Duration(milliseconds: 220),
+                                          curve: Curves.easeOutCubic,
+                                          child: AnimatedOpacity(
+                                            opacity: i == _indice ? 1.0 : 0.58,
+                                            duration: const Duration(milliseconds: 220),
+                                            child: Center(
+                                              child: AspectRatio(
+                                                aspectRatio: 1,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(
+                                                      color: seleccionada
+                                                          ? Colors.white
+                                                          : Colors.white24,
+                                                      width: seleccionada ? 3.5 : 1,
+                                                    ),
+                                                    boxShadow: seleccionada
+                                                        ? [
+                                                      BoxShadow(
+                                                        color: cItem.withValues(alpha: 0.55),
+                                                        blurRadius: 22,
+                                                        spreadRadius: 2,
+                                                      ),
+                                                    ]
+                                                        : null,
+                                                  ),
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(3),
+                                                    child: item.logo != null
+                                                        ? Image.file(
+                                                      File(item.logo!),
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (_, __, ___) =>
+                                                          _CaratulaFallbackGTA(nombre: item.nombre),
+                                                    )
+                                                        : _CaratulaFallbackGTA(nombre: item.nombre),
+                                                  ),
+                                                ),
                                               ),
-                                            ]
-                                                : null,
-                                          ),
-                                          child: ClipRRect(
-                                            borderRadius: BorderRadius.circular(3),
-                                            child: item.logo != null
-                                                ? Image.file(
-                                              File(item.logo!),
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  _CaratulaFallbackGTA(nombre: item.nombre),
-                                            )
-                                                : _CaratulaFallbackGTA(nombre: item.nombre),
+                                            ),
                                           ),
                                         ),
+                                      );
+                                    },
+                                  ),
+                                  if (_indice > 0)
+                                    Positioned(
+                                      left: 8,
+                                      child: IconButton(
+                                        onPressed: () => _seleccionarIndice(_indice - 1),
+                                        icon: const Icon(Icons.chevron_left, color: Colors.white70, size: 32),
                                       ),
                                     ),
+                                  if (_indice < total - 1)
+                                    Positioned(
+                                      right: 8,
+                                      child: IconButton(
+                                        onPressed: () => _seleccionarIndice(_indice + 1),
+                                        icon: const Icon(Icons.chevron_right, color: Colors.white70, size: 32),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // 3. Barra indicadora del dial
+                            _IndicadorDialGTA(
+                              indice: _indice,
+                              total: total,
+                            ),
+
+                            const SizedBox(height: 18),
+
+                            // 4. Bloque central de metadatos en mayúsculas estilo GTA VI
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    e.nombre.toUpperCase(),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                      height: 1.08,
+                                    ),
                                   ),
+                                  const SizedBox(height: 6),
+                                  if (apagada || seg == null || partes == null)
+                                    Text(
+                                      _t('radio_off'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white60,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    )
+                                  else ...[
+                                    Text(
+                                      partes.titulo.toUpperCase(),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      (partes.artista ?? _etiquetaTipo(seg.tipo)).toUpperCase(),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.9,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // 5. Panel inferior dinámico según el selector vertical
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                                child: _PanelInferiorGTA(
+                                  repro: repro,
+                                  emisora: e,
+                                  seg: seg,
+                                  color: color,
+                                  subModo: _subModo,
+                                  apagada: apagada,
                                 ),
-                              );
-                            },
-                          ),
-                          if (_indice > 0)
-                            Positioned(
-                              left: 8,
-                              child: IconButton(
-                                onPressed: () => _seleccionarIndice(_indice - 1),
-                                icon: const Icon(Icons.chevron_left, color: Colors.white70, size: 32),
                               ),
                             ),
-                          if (_indice < total - 1)
-                            Positioned(
-                              right: 8,
-                              child: IconButton(
-                                onPressed: () => _seleccionarIndice(_indice + 1),
-                                icon: const Icon(Icons.chevron_right, color: Colors.white70, size: 32),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
 
-                    const SizedBox(height: 12),
-
-                    // 3. Barra indicadora del dial
-                    _IndicadorDialGTA(
-                      indice: _indice,
-                      total: total,
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // 4. Bloque central de metadatos en mayúsculas estilo GTA VI
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        children: [
-                          Text(
-                            e.nombre.toUpperCase(),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 25,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
-                              height: 1.08,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          if (apagada || seg == null || partes == null)
-                            Text(
-                              _t('radio_off'),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white60,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.1,
-                              ),
-                            )
-                          else ...[
-                            Text(
-                              partes.titulo.toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              (partes.artista ?? _etiquetaTipo(seg.tipo)).toUpperCase(),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.9,
+                            // 6. Botón inferior estilo HUD GTA para crear o importar emisora
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _BotonHudGTA(
+                                    icono: Icons.add,
+                                    etiqueta: _t('create_station'),
+                                    acento: color,
+                                    onTap: _abrirMenuCrear,
+                                  ),
+                                ],
                               ),
                             ),
                           ],
-                        ],
-                      ),
+                        );
+                      },
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // 5. Panel inferior dinámico según el selector vertical
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                        child: _PanelInferiorGTA(
-                          repro: repro,
-                          emisora: e,
-                          seg: seg,
-                          color: color,
-                          subModo: _subModo,
-                          apagada: apagada,
-                        ),
-                      ),
-                    ),
-
-                    // 6. Botón inferior estilo HUD GTA para crear o importar emisora
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _BotonHudGTA(
-                            icono: Icons.add,
-                            etiqueta: _t('create_station'),
-                            acento: color,
-                            onTap: _abrirMenuCrear,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  ),
+                ],
               ),
-              ),
-            ],
-          ),
+            );
+          },
         );
-      },
-    );
       },
     );
   }
@@ -3740,11 +3786,11 @@ class _BotonHudGTA extends StatelessWidget {
             border: Border.all(color: borde),
             boxShadow: acento != null
                 ? [
-                    BoxShadow(
-                      color: acento!.withValues(alpha: 0.22),
-                      blurRadius: 14,
-                    ),
-                  ]
+              BoxShadow(
+                color: acento!.withValues(alpha: 0.22),
+                blurRadius: 14,
+              ),
+            ]
                 : null,
           ),
           child: Row(
@@ -3984,23 +4030,23 @@ class _SelectorVerticalGTA extends StatelessWidget {
                                 : Border.all(color: Colors.white60, width: 1.4),
                             boxShadow: i == indice
                                 ? [
-                                    BoxShadow(
-                                      color: colorAcento.withValues(alpha: 0.65),
-                                      blurRadius: 8,
-                                    ),
-                                  ]
+                              BoxShadow(
+                                color: colorAcento.withValues(alpha: 0.65),
+                                blurRadius: 8,
+                              ),
+                            ]
                                 : null,
                           ),
                           alignment: Alignment.center,
                           child: i == indice
                               ? const Text(
-                                  'R',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                )
+                            'R',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          )
                               : null,
                         ),
                       ),
@@ -4265,57 +4311,57 @@ class _ListaDesplegableGTA extends StatelessWidget {
           ),
           child: items.isEmpty
               ? Center(
-                  child: Opacity(
-                    opacity: t,
-                    child: Text(
-                      textoVacio ?? '',
-                      style: const TextStyle(color: Colors.white54),
+            child: Opacity(
+              opacity: t,
+              child: Text(
+                textoVacio ?? '',
+                style: const TextStyle(color: Colors.white54),
+              ),
+            ),
+          )
+              : ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            itemCount: items.length,
+            itemBuilder: (_, idx) {
+              final item = items[idx];
+              final inicio = (idx * 0.09).clamp(0.0, 0.45);
+              final itemT = ((t - inicio) / (1.0 - inicio)).clamp(0.0, 1.0);
+              final curva = Curves.easeOutCubic.transform(itemT);
+              return Opacity(
+                opacity: curva,
+                child: Transform.translate(
+                  offset: Offset(0, (1.0 - curva) * 14),
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Text(
+                      item.hora,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    title: Text(
+                      item.titulo.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    trailing: Icon(
+                      _iconoTipo(item.tipo),
+                      color: Colors.white70,
+                      size: 18,
                     ),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  itemCount: items.length,
-                  itemBuilder: (_, idx) {
-                    final item = items[idx];
-                    final inicio = (idx * 0.09).clamp(0.0, 0.45);
-                    final itemT = ((t - inicio) / (1.0 - inicio)).clamp(0.0, 1.0);
-                    final curva = Curves.easeOutCubic.transform(itemT);
-                    return Opacity(
-                      opacity: curva,
-                      child: Transform.translate(
-                        offset: Offset(0, (1.0 - curva) * 14),
-                        child: ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Text(
-                            item.hora,
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontWeight: FontWeight.w700,
-                              fontFeatures: [FontFeature.tabularFigures()],
-                            ),
-                          ),
-                          title: Text(
-                            item.titulo.toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
-                          ),
-                          trailing: Icon(
-                            _iconoTipo(item.tipo),
-                            color: Colors.white70,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
                 ),
+              );
+            },
+          ),
         );
       },
     );

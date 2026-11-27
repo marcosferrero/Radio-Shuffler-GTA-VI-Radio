@@ -1,17 +1,9 @@
-# radiogta
+# RADIO SHUFFLER
 
-A new Flutter project.
+A simple radio shuffler made for a variety of things, but specially for GTA VI radios. Its my first project so Ive used Claude and Gemini to guide me throught the process. Ill be improving it little by little from now on and any bugs you find remember to report them so I can keep on improving.
 
 ## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+HOW TO GET YOUR FIRST RADIO UP AND RUNNING: When first booting in the app, youll see a message that says there is no radios and below it the button to create a station. If you decide to create one from scratch, youll have to provide a mp4 file. You can find them in this youtube channel https://youtube.com/@yebovl?si=5z0djB4mMZc_rtoF. You can also provide a logo(optional) and youll have to edit the track list all by yourself. In the videos there's normally a track list which you can use. If you decide to import one, youll need a .gtaradio file. I provide a couple of them in this drive folder. https://drive.google.com/drive/folders/1cjMhrJdoqjSVf8MzsaIJFOkR9vHG4doW?usp=sharing
+HOW TO EDIT, DELETE OR EXPORT YOUR RADIOS:  For accessing the radio menu, youll need to press and hold the cover of the radio until a menu below pops down, there you will have 3 options. First one is edit your track list, so if you see something that doesnt fit the timestamps or you want to add another track or delete one, you can do it through this menu. Second option is to export your radio, it will create a .gtaradio file which you can send to anyone so they can get you preset. Last option is deleting the radio, I think this one is pretty obvious what it does.
+## Future Ideas
+The more easy features Ill like to get in running is a favourites page for radios and the ability to edit crossfades. Ill work on other more complicated features like being able to add different mp4 files with songs, ads, jingles and hosts so it mixes them up to create own radios.
